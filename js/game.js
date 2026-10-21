@@ -1354,6 +1354,7 @@ function hudPills() {
   document.getElementById('youLots').textContent = `${youCount()}/${ch().goal}`;
   document.getElementById('rivLots').textContent = `${rivCount()}/${ch().rivalGoal}`;
   document.getElementById('rivName').textContent = rt().name;
+  document.querySelector('.pill.riv').classList.toggle('danger', !S.free && rivCount() >= ch().rivalGoal - 1);
   document.getElementById('fansPill').hidden = !has('fans');
   document.getElementById('streetName').textContent = ch().name;
 }

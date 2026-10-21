@@ -298,3 +298,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .namef { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 600; }
 .namef input { font: inherit; font-size: 17px; font-weight: 600; color: var(--cream); background: var(--deep); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; outline: none; -webkit-user-select: text; user-select: text; }
 .namef input:focus { border-color: var(--sun); }
+.pill.riv.danger { background: rgba(255, 92, 108, .25); box-shadow: 0 0 0 1.5px var(--red); animation: danger 1.2s ease-in-out infinite; }
+@keyframes danger { 50% { box-shadow: 0 0 0 4px rgba(255, 92, 108, .35); } }
+@media (prefers-reduced-motion: reduce) { .pill.riv.danger { animation: none; } }
