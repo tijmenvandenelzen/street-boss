@@ -251,8 +251,6 @@ function step(dt) {
     l.queue.forEach((p, k) => { p.x = door(i) + 0.16 + k * 0.085; p.dir = -1; });
   });
   S.people = S.people.filter((p) => p.x > -0.8 && p.x < N + 0.8);
-  for (const f of S.fx) { f.life -= dt; f.y += dt * 0.5; }
-  S.fx = S.fx.filter((f) => f.life > 0);
   if (Math.random() < dt * (0.25 + 0.1 * S.ch)) S.cars.push({ x: Math.random() < 0.5 ? -1 : N + 1, dir: 0, c: pick(['#ff5c6c', '#4ea1ff', '#ffd23f', '#3ddc97', '#f4f4f4', '#7b5cff']), kind: Math.random() < 0.15 ? 'van' : 'car' });
   for (const c of S.cars) { if (!c.dir) c.dir = c.x < 0 ? 1 : -1; c.x += c.dir * dt * 2.2; }
   S.cars = S.cars.filter((c) => c.x > -1.5 && c.x < N + 1.5);
@@ -260,6 +258,7 @@ function step(dt) {
   if (S.t >= 1) endDay();
 }
 function addFx(x, txt, color) { S.fx.push({ x, y: 0, txt, color, life: 1.3 }); }
+function bigFx(i, txt) { if (!BOT) S.fx.push({ x: door(i), y: 0, txt, color: '#fff', life: 2, big: true, top: true }); }
 
 /* ---------------- tasks ---------------- */
 function taskDone(id) {
@@ -389,7 +388,14 @@ function queueMorning() {
   for (const id of S.pendingUnlocks || []) q.push(() => showUnlock(id));
   S.pendingUnlocks = [];
   if (has('news')) { const ev = rollEvent(); if (ev) q.push(() => showEvent(ev)); }
-  runQueue(q, () => { S.paused = false; refreshLinks(); renderPanel(); });
+  runQueue(q, () => { S.paused = false; refreshLinks(); renderPanel(); dayBanner(); });
+}
+function dayBanner() {
+  if (BOT) return;
+  const e = document.getElementById('dayBanner');
+  const left = ch().days - S.day;
+  e.innerHTML = `<b>Day ${S.day}</b><span>${S.free ? ch().name : left === 0 ? 'Last day!' : left === 1 ? '1 day left after today' : ch().name}</span>`;
+  e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
 }
 function runQueue(q, done) {
   if (!q.length) { hideModal(); done(); return; }
@@ -461,11 +467,11 @@ function act(kind, arg) {
       break;
     case 'build': {
       const T = TYPES[arg];
-      if (spend(T.build)) { Object.assign(l, { type: arg, level: 1, rating: 3, pop: 1, buildT: 1 }); sfx('upgrade_buy'); toast(`${T.name} cart is open!`); confetti(i, 30); }
+      if (spend(T.build)) { Object.assign(l, { type: arg, level: 1, rating: 3, pop: 1, buildT: 1 }); sfx('upgrade_buy'); toast(`${T.name} cart is open!`); confetti(i, 30); bigFx(i, 'OPEN!'); }
       break;
     }
     case 'up':
-      if (l.level < ch().levelCap && spend(upCost(l))) { l.level++; l.pop = 1; l.buildT = 1; sfx('upgrade_buy'); toast(`Your ${TYPES[l.type].name} is now a ${LV.name[l.level - 1]}!`); confetti(i, 40); }
+      if (l.level < ch().levelCap && spend(upCost(l))) { l.level++; l.pop = 1; l.buildT = 1; sfx('upgrade_buy'); toast(`Your ${TYPES[l.type].name} is now a ${LV.name[l.level - 1]}!`); confetti(i, 40); bigFx(i, LV.name[l.level - 1].toUpperCase() + '!'); }
       break;
     case 'staff': if (has('staff') && l.staff < 3 && spend(staffCost(l))) { l.staff++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); } break;
     case 'qual': if (has('quality') && l.quality < 3 && spend(qualCost(l))) { l.quality++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); toast('Better quality: stars go up tonight'); } break;
@@ -614,7 +620,19 @@ function draw(dtReal) {
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,20,50,.8)';
   for (const f of S.fx) {
     ctx.globalAlpha = Math.min(1, f.life * 1.5);
-    const x = ox + f.x * lw, y = gy - 6 - f.y * fh * 0.9;
+    const x = ox + f.x * lw;
+    if (f.big) {
+      const age = 2 - f.life, sc = Math.min(1, age * 5) * (1 + Math.max(0, 0.25 - age) * 2);
+      const l = S.lots[Math.floor(f.x)];
+      const top = gy - fh * ([0.75, 1.15, 1.9, 2.9, 4.3][(l.level || 1) - 1] + 0.7) - f.y * 20;
+      ctx.font = `${Math.round(24 * G.s)}px "Lilita One",sans-serif`;
+      const half = ctx.measureText(f.txt).width / 2 + 8;
+      ctx.save(); ctx.translate(Math.max(half, Math.min(W - half, x)), Math.max(30, top)); ctx.scale(sc, sc); ctx.lineWidth = 6; ctx.strokeStyle = '#c2410c';
+      ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = '#ffd23f'; ctx.fillText(f.txt, 0, 0); ctx.restore();
+      ctx.font = `${Math.round(14 * G.s)}px "Lilita One",sans-serif`; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,20,50,.8)';
+      continue;
+    }
+    const y = gy - 6 - f.y * fh * 0.9;
     ctx.strokeText(f.txt, x, y); ctx.fillStyle = f.color; ctx.fillText(f.txt, x, y);
   }
   ctx.globalAlpha = 1;
@@ -806,19 +824,20 @@ function drawLinks(ox) {
   for (const k of linkCache) {
     const x = ox + (k.a + 1) * G.lotW;
     if (x < -40 || x > W + 40) continue;
-    const y = gy - fh * 0.62;
+    const y = gy - fh * 1.05;
     const r = Math.max(11, Math.min(18, G.lotW * 0.16));
     ctx.save();
     if (k.kind === 'combo') {
-      const pulse = 1 + Math.sin(tt * 3) * 0.06;
+      const pulse = 1 + Math.sin(tt * 3) * 0.05;
+      const pct = Math.round(20 * (k.sig ? 2 : 1) * (perk('combo') ? 1.5 : 1));
+      const txt = '+' + pct + '%';
+      const fs = Math.round(r * 0.95);
       ctx.translate(x, y); ctx.scale(pulse, pulse);
-      ctx.fillStyle = k.sig ? '#ffd23f' : '#3ddc97'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+      ctx.font = `${fs}px "Lilita One",sans-serif`;
+      const tw = ctx.measureText(txt).width + fs * 0.9;
+      rr(-tw / 2, -r * 0.75, tw, r * 1.5, r * 0.75); ctx.fillStyle = k.sig ? '#ffd23f' : '#3ddc97'; ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-      // two linked rings
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.18);
-      const rw = r * 0.42, rh = r * 0.3;
-      ctx.beginPath(); ctx.ellipse(-rw * 0.55, 0, rw, rh, 0, 0, 7); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(rw * 0.55, 0, rw, rh, 0, 0, 7); ctx.stroke();
+      ctx.fillStyle = k.sig ? '#5a3a00' : '#0d3b27'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, 1);
     } else {
       ctx.translate(x, y);
       ctx.fillStyle = '#ff5c6c'; ctx.beginPath(); ctx.arc(0, 0, r * 0.85, 0, 7); ctx.fill();
@@ -1021,6 +1040,10 @@ function neighborsText(i, type) {
     if (name) out.push(`<span class="chip good">🔗 ${name} with ${TYPES[n.type].icon} lot ${j + 1}</span>`);
     else if (n.type === type) out.push(`<span class="chip bad">Too alike: ${TYPES[n.type].icon} lot ${j + 1} steals customers</span>`);
   }
+  if (out.length > 1 && out.every((o) => o.includes('good'))) {
+    const names = linkCache.filter((x) => x.kind === 'combo' && (x.a === i || x.b === i)).map((x) => x.name);
+    return `<div class="chips"><span class="chip good">🔗 ${names.length} combos: ${names.join(' + ')}</span></div>`;
+  }
   if (!out.length && parts.length) out.push(`<span class="chip">Combo partners: ${parts.map((p) => TYPES[p].icon + ' ' + TYPES[p].name).join(', ')}</span>`);
   return `<div class="chips">${out.join('')}</div>`;
 }
@@ -1045,7 +1068,7 @@ function shopPanel(l) {
     else small += `<div class="act max"><span class="t">✨ Signature</span><span class="s">Needs a Store (size 4)</span></div>`;
   }
   const n = (small.match(/class="act/g) || []).length;
-  if (n) h += `<div class="grid" style="grid-template-columns:repeat(${n === 4 ? 2 : n},1fr)">${small}</div>`;
+  if (n) h += `<div class="grid small n${n}">${small}</div>`;
   h += `<div class="price"><span>Price</span><div class="grid">`;
   for (let k = 0; k < 3; k++) h += `<button class="act ${l.price === k ? 'sel' : ''}" data-k="price" data-a="${k}"><span class="t">${PRICE.name[k]}</span><span class="c">${money(ticket(l, k))}</span></button>`;
   h += `</div></div>`;
@@ -1128,7 +1151,8 @@ function hud() {
   const c = document.getElementById('cashV'); c.textContent = money(shownCash); c.parentNode.classList.toggle('neg', S.cash < 0);
   document.getElementById('dayLbl').innerHTML = `Day ${S.day}${S.free ? '' : ` <span>/ ${ch().days}</span>`}`;
   document.getElementById('clockBar').style.width = Math.min(1, S.t) * 100 + '%';
-  const f = document.getElementById('fansV'); if (f) f.textContent = S.fans;
+  const f = document.getElementById('fansV');
+  if (f && +f.textContent !== S.fans) { const up = S.fans > +f.textContent; f.textContent = S.fans; if (up) { const pl = f.parentNode; pl.classList.remove('bump'); void pl.offsetWidth; pl.classList.add('bump'); } }
   const l = S.lots[S.sel];
   if (l && l.today) {
     const r = document.getElementById('stRev'); if (r) r.textContent = money(l.today.rev);
@@ -1381,7 +1405,10 @@ function frame(now) {
     if (cam.target != null) { cam.x += (cam.target - cam.x) * Math.min(1, dt * 8); if (Math.abs(cam.target - cam.x) < 0.01) { cam.x = cam.target; cam.target = null; } }
     else if (Math.abs(cam.vx) > 0.05) { cam.x = Math.max(0, Math.min(G.maxCam || 0, cam.x + cam.vx * dt)); cam.vx *= Math.pow(0.04, dt); }
   }
-  if (S) { draw(dt); hud(); const ps = S.paused + ':' + modalOpen() + ':' + S.speed; if (ps !== lastPs) { lastPs = ps; hudControls(); } }
+  if (S) {
+    for (const f of S.fx) { f.life -= dt * (f.big ? 1 : Math.min(S.speed, 2)); f.y += dt * 0.5; }
+    S.fx = S.fx.filter((f) => f.life > 0);
+    draw(dt); hud(); const ps = S.paused + ':' + modalOpen() + ':' + S.speed; if (ps !== lastPs) { lastPs = ps; hudControls(); } }
   acc += dt; if (acc > 0.3) { acc = 0; refreshAfford(); }
   requestAnimationFrame(frame);
 }

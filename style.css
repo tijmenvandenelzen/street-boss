@@ -53,8 +53,16 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 #taskChip span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 #taskChip b { color: var(--sun); font-family: var(--display); font-weight: 400; }
 
+#dayBanner { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; opacity: 0; }
+#dayBanner b { font-family: var(--display); font-weight: 400; font-size: clamp(40px, 10vw, 72px); color: #fff; text-shadow: 0 4px 0 rgba(29, 22, 51, .55); line-height: 1; }
+#dayBanner span { font-weight: 600; font-size: 15px; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .4); }
+#dayBanner.on { animation: dayin 1.9s ease-out; }
+@keyframes dayin { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.9); } 15%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%) scale(1); } }
+.pill.bump { animation: bump .35s ease-out; }
+@keyframes bump { 40% { transform: scale(1.18); } }
+
 /* Panel */
-#panel { grid-area: panel; background: var(--panel); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+#panel { grid-area: panel; background: var(--panel); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; max-height: 50vh; max-height: 50dvh; overflow: hidden; }
 .pbody { display: flex; flex-direction: column; gap: 9px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px 2px; }
 .tabs { display: flex; gap: 4px; background: var(--deep); padding: 3px; border-radius: 12px; align-self: flex-start; flex: none; }
 .tabs button { padding: 7px 13px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -72,12 +80,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .stats b { color: var(--cream); font-variant-numeric: tabular-nums; }
 .stats b.neg { color: var(--red); } .stats b.pos { color: var(--mint); }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips .chip { white-space: nowrap; }
 .chip { font-size: 12.5px; padding: 4px 9px; border-radius: 999px; background: var(--panel2); color: var(--muted); }
 .chip.good { background: rgba(61, 220, 151, .16); color: var(--mint); font-weight: 600; }
 .chip.bad { background: rgba(255, 92, 108, .14); color: var(--red); font-weight: 600; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .grid.two { grid-template-columns: repeat(2, 1fr); }
 .grid.one { grid-template-columns: 1fr; }
+.grid.small.n1 { grid-template-columns: 1fr; } .grid.small.n2 { grid-template-columns: repeat(2, 1fr); } .grid.small.n3 { grid-template-columns: repeat(3, 1fr); } .grid.small.n4 { grid-template-columns: repeat(2, 1fr); }
 .act { position: relative; background: var(--panel2); border-radius: 13px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; text-align: center; min-width: 0; min-height: 44px; border: 2px solid transparent; transition: transform .08s, opacity .2s; }
 .act:active { transform: scale(.96); }
 .act .t { font-weight: 700; font-size: 14px; line-height: 1.15; }
@@ -192,11 +202,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   .day .clock { min-width: 50px; }
   .day .street { display: none; }
   .pill .who { display: none; }
+  .grid.small.n4 { grid-template-columns: repeat(4, 1fr); }
+  .grid.small.n4 .s, .grid.small.n3 .s { display: none; }
+  .grid.small.n4 .t { font-size: 13px; }
 }
 /* Landscape and wide screens: panel at the right */
 @media (min-aspect-ratio: 1/1) and (min-width: 700px) {
   #app { grid-template-columns: minmax(0, 1fr) clamp(320px, 31vw, 400px); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "hud hud" "stage panel"; gap: 12px; }
-  #panel { padding: 16px; gap: 12px; }
+  #panel { padding: 16px; gap: 12px; max-height: none; }
   .wide-only { display: flex !important; }
   .phead h2 { font-size: 24px; }
   .act { padding: 10px 6px; }
@@ -216,7 +229,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   .wide-only { display: none !important; }
   .cash small { display: none; }
   #app { gap: 8px; grid-template-columns: minmax(0, 1fr) clamp(280px, 40vw, 360px); }
-  #panel { padding: 10px; gap: 7px; }
+  #panel { padding: 10px; gap: 7px; max-height: none; }
   .pbody { gap: 7px; }
   .act .s { display: none; }
   .act.big .s { display: none; }
