@@ -28,6 +28,8 @@ The ideas work together. Better quality gives more stars. Stars turn customers i
 - A gold arrow over a shop means you can build it up now. A glowing FOR SALE sign means you can buy that lot.
 - Tap the 💵 tips that pop up over your shops for extra cash.
 - New buttons get a pink NEW badge until you try them.
+- Trophies (in the menu and on the start screen) stay with you, also after a new game.
+- The Boss plan tab shows your tasks, your profit per day and, later, campaigns and city projects.
 - On a Mac: space pauses, 1, 2 and 3 set the speed, and the arrow keys pick a lot.
 
 ## Code
