@@ -1420,6 +1420,7 @@ function showReport(r, end) {
   if (r.best && r.best.today.rev > 0 && own('you').filter((l) => l.type).length > 1) notes.push({ e: '🏆', t: `Best shop: ${TYPES[r.best.type].name} on lot ${S.lots.indexOf(r.best) + 1} with ${money(r.best.today.rev)}.` });
   if (r.lost > 0) notes.push({ e: '😠', t: `${r.lost} ${r.lost === 1 ? 'customer' : 'customers'} walked away from a full line.${has('staff') ? ' More staff or a bigger shop helps.' : ''}` });
   if (S.cash < 0 && !end) notes.push({ e: '⚠️', t: S.debtDays >= 2 ? 'Last warning: get your cash above $0 by tonight, or you go bankrupt!' : 'Your cash is below $0! Get it above $0 soon, or you go bankrupt.', bad: true });
+  if (!end && !S.free && rivCount() === ch().rivalGoal - 1 && S.lots.some((l) => !l.owner)) notes.push({ e: '🚨', t: `${rt().name} needs just 1 more lot to win! Buy the free lots first${has('buyout') ? ', or buy out one of its stores' : ''}.`, bad: true });
   const loanSoon = S.loans.find((x) => x.due === r.day + 1);
   if (loanSoon && !end) notes.push({ e: '🏦', t: `Tomorrow night you pay back the loan: ${money(loanSoon.amt)}.`, bad: S.cash < loanSoon.amt });
   const soon = ch().unlocks.find((u) => u.day === r.day + 1 && !has(u.id));
