@@ -48,7 +48,7 @@ export const CONCEPTS = {
   quality:   { icon: '⭐', title: 'Quality and stars', text: 'Better quality gives more stars, and more stars bring more customers. Stars change each night. Cheap prices give a few more stars, Premium a few less.' },
   combos:    { icon: '🔗', title: 'Combos', text: 'Some shops are best friends. Put them side by side and both get more customers, and people often visit both. Look for 🔗 when you pick a shop.' },
   news:      { icon: '📰', title: 'Street news', text: 'From now on, something can happen each morning. Some news is good, some is bad, and sometimes you must choose.' },
-  fans:      { icon: '❤️', title: 'Fans', text: 'Happy customers can become fans. Every 10 fans make your shops 1% more popular. You can also spend fans on campaigns for a big boost.' },
+  fans:      { icon: '❤️', title: 'Fans', text: 'Happy customers can become fans, and shops with more stars make many more fans. Every 10 fans make your shops 1% more popular. You can also spend fans on campaigns for a big boost.' },
   buyout:    { icon: '💼', title: 'Buy out', text: 'Tap a MegaMart store to buy it out. It is expensive, but the lot becomes yours and MegaMart loses it.' },
   city:      { icon: '🏙️', title: 'City projects', text: 'Pay for a bus stop, street lights, a park or a metro. They bring more people to the whole street. MegaMart gets those people too!' },
   signature: { icon: '✨', title: 'Signature items', text: 'A Store (size 4) can invent its own famous product. It sells for more, and the combos of that shop get twice as strong.' },

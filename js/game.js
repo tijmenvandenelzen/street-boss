@@ -1198,7 +1198,7 @@ function streetList() {
     else if (l.owner === 'you') { ic = '🏗️'; name = 'Your empty lot'; info = 'Pick a shop'; }
     else if (l.owner === 'rival') { ic = rt().short[0]; name = rt().name; info = `${l.today.served} customers`; cls = 'riv'; }
     else { ic = has('lots') ? '🪧' : '🚧'; name = has('lots') ? 'For sale' : 'Not for sale yet'; info = has('lots') ? money(lotPrice()) : ''; cls = 'free'; }
-    return `<button class="srow ${cls} ${i === S.sel ? 'on' : ''}" data-go="${i}"><span class="n">${i + 1}</span><span class="i">${ic}</span><span class="nm">${name}</span><span class="inf">${info}</span></button>`;
+    return `<button class="srow ${cls} ${i === S.sel ? 'on' : ''}" data-go="${i}"><span class="n">${i + 1}</span><span class="i">${ic}</span><span class="nm">${name}</span><span class="inf" data-sr="${i}">${info}</span></button>`;
   }).join('');
   return `<div class="sec wide-only"><b>Your street</b><div class="slist">${rows}</div></div>`;
 }
@@ -1324,6 +1324,11 @@ function planPanel() {
   return h;
 }
 function refreshAfford() {
+  P.querySelectorAll('[data-sr]').forEach((e) => {
+    const l = S.lots[+e.dataset.sr];
+    if (l.owner === 'you' && l.type) e.innerHTML = `<b>${money(l.today.rev)}</b> today`;
+    else if (l.owner === 'rival') e.textContent = `${l.today.served} customers`;
+  });
   P.querySelectorAll('[data-cost]').forEach((b) => { if (b.dataset.cost !== '') b.classList.toggle('poor', +b.dataset.cost > S.cash); });
   P.querySelectorAll('[data-fans]').forEach((b) => { if (b.dataset.fans !== '') b.classList.toggle('poor', +b.dataset.fans > S.fans); });
 }
