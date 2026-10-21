@@ -65,7 +65,7 @@ export const CHAPTERS = [
   },
   {
     id: 'market', name: 'Market Square', blurb: 'A busy square. MegaMart has a store here.', lots: 7, days: 30, goal: 4, rivalGoal: 4,
-    levelCap: 4, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone'], traffic: 76, lotBase: 400, theme: 'market',
+    levelCap: 4, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone'], traffic: 76, lotBase: 360, theme: 'market',
     you: { lot: 1 }, rivalStart: [[5, 2]], rival: { type: 'mega', funding: [8, 1.5], lotCost: [800, 450], buyProb: 0.4, startDelay: 3, cut: 0.6, upProb: 0.45 },
     unlocks: [{ id: 'combos', day: 1 }, { id: 'news', day: 3 }, { id: 'fans', day: 6 }],
     startCash: 450,

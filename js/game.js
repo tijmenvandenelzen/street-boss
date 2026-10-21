@@ -49,7 +49,7 @@ function setupChapter(i, carry) {
   const C = CHAPTERS[i];
   S.ch = i; S.day = 1; S.t = 0; S.ended = false; S.debtDays = 0; S.effects = []; S.loans = []; S.city = {};
   S.rival = { cash: 250 + i * 300, war: 0 };
-  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = [];
+  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = []; S.tryNew = {};
   S.lots = [];
   for (let k = 0; k < C.lots; k++) S.lots.push(newLot());
   const start = S.lots[C.you.lot];
@@ -361,7 +361,7 @@ function endDay() {
   if (!S.free) {
     if (youCount() >= ch().goal) end = 'win';
     else if (rivCount() >= ch().rivalGoal) end = 'rival';
-    else if (S.debtDays >= 2) end = 'broke';
+    else if (S.debtDays >= 3) end = 'broke';
     else if (S.day >= ch().days) end = 'time';
   } else if (S.debtDays >= 3) end = 'broke';
   if (end) S.ended = true;
@@ -454,8 +454,8 @@ function EVENTS() {
       { t: 'Match prices', s: 'Your shops go Cheap for 3 days', f: () => { S.rival.war = 3; shops.forEach((l) => { l.oldPrice = l.price; l.price = 0; }); } },
       { t: 'Keep my prices', f: () => { S.rival.war = 3; } }] }) },
     { id: 'loan', w: 0.7, ok: S.loans.length === 0 && S.day < ch().days - 6, make: () => { const a = 800 + 500 * S.ch; return { icon: '🏦', title: 'The bank calls', text: `You can borrow ${money(a)} now. You pay back ${money(a * 1.25)} in 6 days.`, choices: [
-      { t: 'Take the loan', s: '+' + money(a) + ' now', f: () => { S.cash += a; S.loans.push({ amt: a * 1.25, due: S.day + 6 }); } },
-      { t: 'No loan', f: () => {} }] }; } },
+      { t: 'No loan', f: () => {} },
+      { t: 'Take the loan', s: '+' + money(a) + ' now', f: () => { S.cash += a; S.loans.push({ amt: a * 1.25, due: S.day + 6 }); } }] }; } },
     { id: 'festival', w: 0.7, ok: S.day >= 4, make: () => ({ icon: '🎉', good: true, title: 'Street festival!', text: 'There is a festival on your street today. Twice as many visitors!', choices: [{ t: 'Let’s go', f: () => S.effects.push({ kind: 'fest', until: S.day, traffic: 2 }) }] }) },
     { id: 'offer', w: 0.6, ok: shops.length >= 2 && rivCount() < ch().rivalGoal - 1, make: () => {
       const l = [...shops].sort((a, b) => shopValue(a) - shopValue(b))[0]; const i = S.lots.indexOf(l); const v = r10(shopValue(l) * 2 + lotPrice());
@@ -1235,7 +1235,7 @@ function planPanel() {
   const days = C.days - S.day;
   let h = `<div class="goal"><div class="race-row"><span>You <b class="pos">${youCount()}/${C.goal}</b></span><span>${S.free ? 'Free play' : days === 0 ? 'Last day!' : days + ' days left'}</span><span>${rt().name} <b class="neg">${rivCount()}/${C.rivalGoal}</b></span></div>
   <div class="bar">${S.lots.map((l, i) => `<i data-go="${i}" style="background:${l.owner === 'you' ? 'var(--mint)' : l.owner === 'rival' ? 'var(--red)' : 'var(--panel2)'}"></i>`).join('')}</div>
-  <span>${S.free ? 'You won the city. Keep growing your shops as long as you like!' : `<b>${C.name}:</b> own ${C.goal} lots before day ${C.days}. If ${rt().name} gets ${C.rivalGoal} lots first, or your cash is below $0 for two nights, you lose.`}</span></div>`;
+  <span>${S.free ? 'You won the city. Keep growing your shops as long as you like!' : `<b>${C.name}:</b> own ${C.goal} lots before day ${C.days}. If ${rt().name} gets ${C.rivalGoal} lots first, or your cash is below $0 for three nights, you lose.`}</span></div>`;
   const tasks = activeTasks();
   if (tasks.length) {
     h += `<div class="sec"><b>Tasks</b>`;
@@ -1351,7 +1351,9 @@ function showReport(r, end) {
   const notes = [...r.news];
   if (r.best && r.best.today.rev > 0 && own('you').filter((l) => l.type).length > 1) notes.push({ e: '🏆', t: `Best shop: ${TYPES[r.best.type].name} on lot ${S.lots.indexOf(r.best) + 1} with ${money(r.best.today.rev)}.` });
   if (r.lost > 0) notes.push({ e: '😠', t: `${r.lost} ${r.lost === 1 ? 'customer' : 'customers'} walked away from a full line.${has('staff') ? ' More staff or a bigger shop helps.' : ''}` });
-  if (S.cash < 0 && !end) notes.push({ e: '⚠️', t: 'Your cash is below $0! Get above $0 by tonight, or you go bankrupt.', bad: true });
+  if (S.cash < 0 && !end) notes.push({ e: '⚠️', t: S.debtDays >= 2 ? 'Last warning: get your cash above $0 by tonight, or you go bankrupt!' : 'Your cash is below $0! Get it above $0 soon, or you go bankrupt.', bad: true });
+  const loanSoon = S.loans.find((x) => x.due === r.day + 1);
+  if (loanSoon && !end) notes.push({ e: '🏦', t: `Tomorrow night you pay back the loan: ${money(loanSoon.amt)}.`, bad: S.cash < loanSoon.amt });
   const soon = ch().unlocks.find((u) => u.day === r.day + 1 && !has(u.id));
   if (soon && !end) notes.push({ e: '🎁', t: `Tomorrow: something new to try — ${CONCEPTS[soon.id].title}!` });
   if (notes.length) h += `<div class="news">${notes.map((n) => `<span class="${n.bad ? 'bad' : ''}">${n.e} ${n.t}</span>`).join('')}</div>`;
@@ -1446,7 +1448,7 @@ function showChapterIntro(carry) {
 function showLose(end) {
   const T = {
     rival: ['🏬', `${rt().name} took over`, `${rt().name} owns ${rivCount()} lots, so this street is theirs. Tip: buy lots early, before ${rt().name} has the cash.`],
-    broke: ['💸', 'Bankrupt', 'Your cash stayed below $0 for two nights. Tip: check the costs of each shop before you hire staff.'],
+    broke: ['💸', 'Bankrupt', 'Your cash stayed below $0 for three nights. Tip: keep some cash for the nightly costs and for loan paybacks.'],
     time: ['⏰', 'Time is up', `Day ${ch().days} is over and you own ${youCount()} of ${ch().goal} lots. So close!`],
   }[end];
   sfx('lose'); music(null);
