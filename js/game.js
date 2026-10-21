@@ -1205,7 +1205,7 @@ function streetList() {
 }
 function hint() {
   const shops = own('you').filter((l) => l.type);
-  if (S.ch === 0 && S.day === 1 && !shops.some((l) => l.level >= 2)) return `<div class="hint">People walk by, and some buy lemonade. When you have ${money(upCost(shops[0]))}, tap <b>Build up</b> to turn your cart into a kiosk.</div>`;
+  if (S.ch === 0 && S.day === 1 && !shops.some((l) => l.level >= 2)) return `<div class="hint">People walk by, and some buy lemonade. ${S.cash >= upCost(shops[0]) ? 'Tap <b>Build up</b> now' : `When you have ${money(upCost(shops[0]))}, tap <b>Build up</b>`} to turn your cart into a kiosk: more customers and a higher price.</div>`;
   if (S.ch === 0 && has('lots') && youCount() === 1) return `<div class="hint">Tap a <b>FOR SALE</b> lot to buy it before ${rt().name} does. Own ${ch().goal} lots to win this street.</div>`;
   return '';
 }
