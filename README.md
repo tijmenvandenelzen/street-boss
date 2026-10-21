@@ -23,6 +23,13 @@ There are three streets. Each one adds new ideas, one at a time, so you learn th
 
 The ideas work together. Better quality gives more stars. Stars turn customers into fans. Fans make every shop more popular and pay for campaigns. Shops that are combo partners send customers to each other, and a signature product makes those combos twice as strong. Between streets you pick a boss perk that stays with you.
 
+## Small things to look for
+
+- A gold arrow over a shop means you can build it up now. A glowing FOR SALE sign means you can buy that lot.
+- Tap the 💵 tips that pop up over your shops for extra cash.
+- New buttons get a pink NEW badge until you try them.
+- On a Mac: space pauses, 1, 2 and 3 set the speed, and the arrow keys pick a lot.
+
 ## Code
 
 Plain HTML, CSS and JavaScript modules. No build step.

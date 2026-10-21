@@ -411,7 +411,11 @@ function queueMorning() {
   runQueue(q, () => {
     S.paused = false; refreshLinks(); renderPanel(); dayBanner();
     // Rival builds from last night appear now, so the player sees them grow.
-    S.lots.forEach((l) => { if (l.fresh) { l.fresh = false; l.buildT = 1; l.pop = 1; } });
+    S.lots.forEach((l, i) => {
+      if (!l.fresh) return;
+      l.fresh = false; l.buildT = 1; l.pop = 1;
+      if (!BOT) S.fx.push({ x: door(i), y: 0, txt: l.from ? 'BIGGER!' : rt().name.toUpperCase() + '!', color: '#fff', life: 2, big: true, rival: true });
+    });
   });
 }
 function dayBanner() {
@@ -420,6 +424,7 @@ function dayBanner() {
   const left = ch().days - S.day;
   e.innerHTML = `<b>Day ${S.day}</b><span>${S.free ? ch().name : left === 0 ? 'Last day!' : left === 1 ? '1 day left after today' : ch().name}</span>`;
   e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
+  sfx('ui_open', { volume: 0.6 });
 }
 function runQueue(q, done) {
   if (!q.length) { hideModal(); done(); return; }
@@ -567,9 +572,11 @@ function layout() {
   cam.x = Math.max(0, Math.min(G.maxCam, cam.x));
   makeBackdrop();
 }
-let backdrop = [];
+let backdrop = [], clouds = [];
 function makeBackdrop() {
   backdrop = [];
+  clouds = [];
+  for (let k = 0; k < 7; k++) clouds.push({ x: k / 7 + Math.random() * 0.08, y: 0.06 + Math.random() * 0.4, s: 0.6 + Math.random() * 0.7, v: 0.004 + Math.random() * 0.006 });
   let seed = 11 + S.ch * 7;
   const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const theme = ch().theme;
@@ -632,6 +639,7 @@ function draw(dtReal) {
   const sx = W / 2 + Math.cos(ang) * W * 0.42, sy = gy * 0.95 - Math.sin(ang) * gy * 0.8;
   ctx.fillStyle = t < 0.85 ? (effect('heat') ? '#ffe066' : '#fff3b0') : '#f4f1ff';
   ctx.beginPath(); ctx.arc(sx, sy, Math.max(12, fh * 0.28) * (effect('heat') ? 1.4 : 1), 0, 7); ctx.fill();
+  drawClouds(t, night);
   drawBackdrop(t, night);
   // lots
   for (let i = 0; i < S.lots.length; i++) {
@@ -668,8 +676,8 @@ function draw(dtReal) {
       const top = gy - fh * (f.combo ? 1.75 : HEIGHT[(l.level || 1) - 1] + 0.7) - f.y * 20;
       ctx.font = `${Math.round((f.combo ? 20 : 24) * G.s)}px "Lilita One",sans-serif`;
       const half = ctx.measureText(f.txt).width / 2 + 8;
-      ctx.save(); ctx.translate(Math.max(half, Math.min(W - half, x)), Math.max(30, top)); ctx.scale(sc, sc); ctx.lineWidth = 6; ctx.strokeStyle = f.combo ? '#0d3b27' : '#c2410c';
-      ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = f.combo ? '#3ddc97' : '#ffd23f'; ctx.fillText(f.txt, 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(Math.max(half, Math.min(W - half, x)), Math.max(30, top)); ctx.scale(sc, sc); ctx.lineWidth = 6; ctx.strokeStyle = f.combo ? '#0d3b27' : f.rival ? '#5a0d16' : '#c2410c';
+      ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = f.combo ? '#3ddc97' : f.rival ? '#ff5c6c' : '#ffd23f'; ctx.fillText(f.txt, 0, 0); ctx.restore();
       ctx.font = `${Math.round(14 * G.s)}px "Lilita One",sans-serif`; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,20,50,.8)';
       continue;
     }
@@ -700,6 +708,17 @@ function draw(dtReal) {
     rr(x + 3, 8, lw - 6, gy - 8 + G.pavH * 0.3, 10); ctx.stroke(); ctx.setLineDash([]);
   }
   drawMinimap();
+}
+function drawClouds(t, night) {
+  const tt = performance.now() / 1000, span = W + 240;
+  ctx.fillStyle = lerpC('#ffffff', '#5a4a8a', Math.min(1, night * 1.2 + Math.max(0, t - 0.7)));
+  for (const c of clouds) {
+    const x = ((c.x * span + tt * c.v * 60 - cam.x * G.lotW * 0.12) % span + span) % span - 120, y = c.y * G.groundY, r = 22 * c.s * Math.min(1.5, Math.max(1, G.fh / 70));
+    ctx.globalAlpha = 0.85 - night * 0.4;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.arc(x + r * 1.1, y + r * 0.2, r * 0.8, 0, 7); ctx.arc(x - r * 1.05, y + r * 0.25, r * 0.7, 0, 7);
+    ctx.rect(x - r * 1.05, y + r * 0.2, r * 2.15, r * 0.75); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 function drawBackdrop(t, night) {
   const theme = ch().theme;
