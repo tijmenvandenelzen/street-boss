@@ -259,7 +259,7 @@ function step(dt) {
   // Now and then a happy customer leaves a tip. Tap it to collect.
   if (!BOT && S.t < 0.9 && Math.random() < dt / 11) {
     const mine = S.lots.map((l, i) => i).filter((i) => isShop(S.lots[i]) && !(S.bubbles || []).some((b) => b.i === i));
-    if (mine.length) { const i = pick(mine), l = S.lots[i]; (S.bubbles = S.bubbles || []).push({ i, v: Math.max(5, r5(ticket(l) * 1.6 * l.level)), life: 7, t: 0 }); }
+    if (mine.length) { const i = pick(mine), l = S.lots[i]; (S.bubbles = S.bubbles || []).push({ i, v: Math.max(5, r5(ticket(l) * (1 + 0.4 * l.level))), life: 7, t: 0 }); }
   }
   for (const b of S.bubbles || []) { b.life -= dt; b.t += dt; }
   if (S.bubbles) S.bubbles = S.bubbles.filter((b) => b.life > 0);
