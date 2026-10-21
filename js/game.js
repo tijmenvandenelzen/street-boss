@@ -1,5 +1,5 @@
 // Street Boss: grow a lemonade cart into a street of shops.
-import { TYPES, RIVAL_TYPES, COMBOS, comboName, partners, LV, PRICE, CONCEPTS, CHAPTERS, CITY, CAMPAIGNS, PERKS, TASKS } from './data.js';
+import { TYPES, RIVAL_TYPES, COMBOS, comboName, partners, LV, PRICE, CONCEPTS, CHAPTERS, CITY, CAMPAIGNS, PERKS, TASKS, TROPHIES } from './data.js';
 import { Sound } from '../sound/sound.js';
 
 const DAY_LEN = 34;
@@ -49,7 +49,7 @@ function setupChapter(i, carry) {
   const C = CHAPTERS[i];
   S.ch = i; S.day = 1; S.t = 0; S.ended = false; S.debtDays = 0; S.effects = []; S.loans = []; S.city = {};
   S.rival = { cash: 250 + i * 300, war: 0 };
-  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = []; S.tryNew = {};
+  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = []; S.tryNew = {}; S.profits = [];
   S.lots = [];
   for (let k = 0; k < C.lots; k++) S.lots.push(newLot());
   const start = S.lots[C.you.lot];
@@ -314,7 +314,63 @@ function checkTasks(force) {
       renderPanel();
     }
   }
+  checkTrophies();
   renderTaskChip();
+}
+
+/* ---------------- trophies ---------------- */
+const TROPHY_KEY = 'streetboss.trophies';
+let trophies = [];
+try { trophies = JSON.parse(localStorage.getItem(TROPHY_KEY)) || []; } catch (e) { /* ignore */ }
+function trophyMet(id) {
+  const shops = own('you').filter((l) => l.type);
+  switch (id) {
+    case 'kiosk': return shops.some((l) => l.level >= 2);
+    case 'lot': return youCount() >= 2;
+    case 'staff3': return shops.some((l) => l.staff >= 3);
+    case 'tips10': return (S.tips || 0) >= 10;
+    case 'star5': return shops.some((l) => l.rating >= 4.75);
+    case 'combo3': return comboCount() >= 3;
+    case 'fans100': return S.fans >= 100;
+    case 'speedy': return S.stars.some((x) => x === 3);
+    case 'profit1k': return S.lastProfit >= 1000;
+    case 'sig': return shops.some((l) => l.sig);
+    case 'buyout': return !!S.didBuyout;
+    case 'tower': return shops.some((l) => l.level >= 5);
+    case 'metro': return !!S.city.metro;
+    case 'boss': return S.stars.filter(Boolean).length >= CHAPTERS.length;
+  }
+  return false;
+}
+function checkTrophies() {
+  if (BOT) return;
+  for (const t of TROPHIES) {
+    if (trophies.includes(t.id) || !trophyMet(t.id)) continue;
+    trophies.push(t.id);
+    try { localStorage.setItem(TROPHY_KEY, JSON.stringify(trophies)); } catch (e) { /* ignore */ }
+    showTrophy(t);
+  }
+}
+let trophyQ = [], trophyT = 0;
+function showTrophy(t) {
+  trophyQ.push(t);
+  if (trophyQ.length > 1) return;
+  const run = () => {
+    const x = trophyQ[0]; if (!x) return;
+    const e = document.getElementById('trophy');
+    e.innerHTML = `<span class="e">${x.icon}</span><span><small>Trophy unlocked</small><b>${x.name}</b></span>`;
+    e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
+    sfx('milestone', { volume: 0.7 });
+    clearTimeout(trophyT); trophyT = setTimeout(() => { e.classList.remove('on'); trophyQ.shift(); setTimeout(run, 400); }, 2800);
+  };
+  run();
+}
+function showTrophies(back) {
+  showModal(`<div class="kicker">${trophies.length} of ${TROPHIES.length}</div><h3>Trophies</h3><div class="trophies">${TROPHIES.map((t) => {
+    const got = trophies.includes(t.id);
+    return `<div class="tro ${got ? 'got' : ''}"><span class="e">${got ? t.icon : '🔒'}</span><b>${t.name}</b><span>${t.s}</span></div>`;
+  }).join('')}</div><div class="btns"><button class="btn go" id="mTB">OK</button></div>`);
+  bind('mTB', back);
 }
 
 /* ---------------- day cycle ---------------- */
@@ -353,6 +409,7 @@ function endDay() {
   const prev = S.day > 1 ? S.lastProfit : null;
   const record = S.day > 2 && profit > 0 && profit > S.history.bestProfit * 1.1;
   S.lastProfit = profit;
+  S.profits = [...(S.profits || []), Math.round(profit)].slice(-40);
   S.history.bestProfit = Math.max(S.history.bestProfit, profit);
   checkTasks(true);
   const report = { day: S.day, rev, rentSum, wages, loanPay, profit, served, lost, news, best, prev, record };
@@ -1257,6 +1314,11 @@ function planPanel() {
     }
     h += `</div>`;
   }
+  const pr = (S.profits || []).slice(-14);
+  if (pr.length >= 2) {
+    const mx = Math.max(1, ...pr.map(Math.abs));
+    h += `<div class="sec"><b>Profit per day <span class="muted">best ${money(Math.max(...pr))}</span></b><div class="spark">${pr.map((v, k) => `<i class="${v < 0 ? 'neg' : ''} ${k === pr.length - 1 ? 'last' : ''}" style="height:${Math.max(4, Math.round((Math.abs(v) / mx) * 100))}%" title="${money(v)}"></i>`).join('')}</div></div>`;
+  }
   if (S.perks.length) h += `<div class="sec"><b>Your boss perks</b><div class="chips">${S.perks.map((p) => `<span class="chip">${PERKS[p].icon} ${PERKS[p].name}</span>`).join('')}</div></div>`;
   h += `<div class="sec"><b>Money</b><div class="tbl"><span>Net worth</span><span>${money(netWorth())}</span><span>Costs every night</span><span>${money(own('you').filter((l) => l.type).reduce((a, l) => a + dayCosts(l), 0))}</span>${S.loans.length ? `<span>Loan due day ${S.loans[0].due}</span><span class="neg">${money(S.loans[0].amt)}</span>` : ''}</div></div>`;
   return h;
@@ -1401,6 +1463,7 @@ function chapterStars() { const d = S.day / ch().days; return d <= 0.55 ? 3 : d 
 function showChapterWin() {
   const stars = chapterStars();
   S.stars[S.ch] = Math.max(S.stars[S.ch] || 0, stars);
+  setTimeout(checkTrophies, 1800);
   const last = S.ch === CHAPTERS.length - 1;
   const C = ch();
   sfx('win'); music(null);
@@ -1477,6 +1540,7 @@ function showMenu() {
     <button class="btn" id="mSound">${muted ? '🔈 Sound: off' : '🔊 Sound: on'}</button>
     <button class="btn" id="mMusic">${musicOn ? '🎵 Music: on' : '🎵 Music: off'}</button>
     <button class="btn" id="mHow">❓ How to play</button>
+    <button class="btn" id="mTro">🏅 Trophies <span class="muted">${trophies.length}/${TROPHIES.length}</span></button>
     <button class="btn" id="mRestart">↺ Restart ${ch().name}</button>
     <button class="btn" id="mMain">🏠 Main menu</button>
    </div>
@@ -1484,6 +1548,7 @@ function showMenu() {
   bind('mSound', () => { sound.toggleMute(); showMenu(); S.paused = wasPaused; });
   bind('mMusic', () => { sound.setVolume('music', musicOn ? 0 : 0.55); showMenu(); S.paused = wasPaused; });
   bind('mHow', () => showHow(() => { showMenu(); S.paused = wasPaused; }));
+  bind('mTro', () => showTrophies(() => { showMenu(); S.paused = wasPaused; }));
   bind('mRestart', () => showModal(`<h3>Restart ${ch().name}?</h3><p>You go back to day 1 of this street. Your perks stay.</p><div class="btns"><button class="btn" id="mNo">Cancel</button><button class="btn go" id="mYes">Restart</button></div>`) || (bind('mNo', () => { showMenu(); S.paused = wasPaused; }), bind('mYes', retryChapter)));
   bind('mMain', () => { save(); showStart(); });
   bind('mBack', () => { hideModal(); S.paused = wasPaused; hudControls(); });
@@ -1514,7 +1579,7 @@ function showStart() {
    <p class="lead">Start with a lemonade cart. End with a whole street of shops.</p>
    <div class="map">${nodes}</div>
    <div class="btns">${saved ? `<button class="btn go" id="mCont">Continue<small>${CHAPTERS[saved.ch].name} · day ${saved.day}</small></button><button class="btn" id="mNew">New game</button>` : `<button class="btn go" id="mNew">Open the shop</button>`}</div>
-   <button class="link" id="mHow2">How to play</button>`, 'start');
+   <div class="links"><button class="link" id="mHow2">How to play</button><button class="link" id="mTro2">🏅 Trophies ${trophies.length}/${TROPHIES.length}</button></div>`, 'start');
   bind('mCont', () => {
     S = saved; afterLoad(); hideModal(); music('music_game');
     if (S.ended && !S.free) {
@@ -1532,6 +1597,7 @@ function showStart() {
     } else beginNew();
   });
   bind('mHow2', () => showHow(showStart));
+  bind('mTro2', () => showTrophies(showStart));
 }
 function beginNew() {
   newGame(); afterLoad(); save();

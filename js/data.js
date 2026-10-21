@@ -133,3 +133,21 @@ export const TASKS = {
     { id: 'profit2k', t: 'Make $2,000 profit in one day', r: 1000 },
   ],
 };
+
+// Trophies stay across games, also after a new game.
+export const TROPHIES = [
+  { id: 'kiosk',   icon: '🏪', name: 'Kiosk owner',   s: 'Build up a cart into a kiosk' },
+  { id: 'lot',     icon: '🪧', name: 'Land owner',      s: 'Buy your first lot' },
+  { id: 'staff3',  icon: '🧑‍🍳', name: 'Full team',     s: 'Hire 3 workers in one shop' },
+  { id: 'tips10',  icon: '💵', name: 'Tip jar',        s: 'Collect 10 tips' },
+  { id: 'star5',   icon: '⭐', name: 'Five stars',     s: 'Get a shop to 5 stars' },
+  { id: 'combo3',  icon: '🔗', name: 'Best friends',   s: 'Have 3 combos at once' },
+  { id: 'fans100', icon: '❤️', name: 'Fan favorite',   s: 'Get 100 fans' },
+  { id: 'speedy',  icon: '⚡', name: 'Speedy',         s: 'Win a street with 3 stars' },
+  { id: 'profit1k',icon: '💰', name: 'Big day',        s: 'Make $1,000 profit in one day' },
+  { id: 'sig',     icon: '✨', name: 'Inventor',       s: 'Invent a signature item' },
+  { id: 'buyout',  icon: '💼', name: 'Takeover',       s: 'Buy out a MegaMart store' },
+  { id: 'tower',   icon: '🏙️', name: 'Sky high',       s: 'Build a Tower' },
+  { id: 'metro',   icon: '🚇', name: 'City builder',   s: 'Build the metro station' },
+  { id: 'boss',    icon: '👑', name: 'Street Boss',    s: 'Win all three streets' },
+];
