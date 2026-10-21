@@ -1326,7 +1326,7 @@ function planPanel() {
 }
 function refreshAfford() {
   P.querySelectorAll('[data-sr]').forEach((e) => {
-    const l = S.lots[+e.dataset.sr];
+    const l = S.lots[+e.dataset.sr]; if (!l) return;
     if (l.owner === 'you' && l.type) e.innerHTML = `<b>${money(l.today.rev)}</b> today`;
     else if (l.owner === 'rival') e.textContent = `${l.today.served} customers`;
   });
