@@ -471,7 +471,7 @@ function queueMorning() {
     S.lots.forEach((l, i) => {
       if (!l.fresh) return;
       l.fresh = false; l.buildT = 1; l.pop = 1;
-      if (!BOT) S.fx.push({ x: door(i), y: 0, txt: l.from ? 'BIGGER!' : rt().name.toUpperCase() + '!', color: '#fff', life: 2, big: true, rival: true });
+      if (!BOT) setTimeout(() => S.fx.push({ x: door(i), y: 0, txt: l.from ? 'BIGGER!' : rt().name.toUpperCase() + '!', color: '#fff', life: 2, big: true, rival: true }), 1500);
     });
   });
 }

@@ -241,6 +241,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   .day .street { display: none; }
   .card { padding: 14px; gap: 9px; }
   .emoji.big { font-size: 40px; }
+  .card.win { width: min(560px, 100%); }
+  .card.win .tbl { grid-template-columns: 1fr auto 1fr auto; font-size: 13px; }
+  .bigstars { font-size: 30px; }
 }
 @media (hover: hover) {
   .act:hover:not(.max):not(.poor) { border-color: rgba(255, 255, 255, .18); }
