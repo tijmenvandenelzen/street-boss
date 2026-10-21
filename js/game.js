@@ -27,6 +27,7 @@ function music(name) { if (!BOT) try { sound.music(name, { fade: 0.8 }); } catch
 
 /* ---------------- state ---------------- */
 let S = null;
+let booting = true;
 const ch = () => CHAPTERS[S.ch];
 const rt = () => RIVAL_TYPES[ch().rival.type];
 const has = (c) => !!S.unlocked[c];
@@ -58,7 +59,7 @@ function setupChapter(i, carry) {
   for (const u of C.unlocks) if (u.day <= 1) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
   if (i > 0) Object.assign(S.unlocked, { staff: true, lots: true, quality: true });
   if (i > 1) Object.assign(S.unlocked, { combos: true, news: true, fans: true });
-  try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
+  if (!booting && !BOT) try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
 }
 const own = (o) => S.lots.filter((l) => l.owner === o);
 const youCount = () => own('you').length;
@@ -1260,7 +1261,7 @@ function showChapterWin() {
     <div class="tbl"><span>Net worth</span><span>${money(netWorth())}</span><span>Total sales</span><span>${money(S.history.totalRev)}</span><span>Best day profit</span><span>${money(S.history.bestProfit)}</span>${has('fans') ? `<span>Fans</span><span>${S.fans} ❤️</span>` : ''}</div>
     <div class="btns">${last ? `<button class="btn" id="mFree">Keep playing</button><button class="btn go" id="mMenu">Main menu</button>` : `<button class="btn go" id="mNextCh">Next street: ${CHAPTERS[S.ch + 1].name}</button>`}</div>`, 'win');
   bind('mNextCh', showPerks);
-  bind('mFree', () => { S.free = true; S.ended = false; save(); hideModal(); startDay(); music('music_game'); });
+  bind('mFree', () => { S.free = true; S.ended = false; for (const u of ch().unlocks) S.unlocked[u.id] = true; save(); hideModal(); startDay(); music('music_game'); });
   bind('mMenu', () => { save(); showStart(); });
   save();
 }
@@ -1276,7 +1277,7 @@ function goNextChapter() {
   const best = shops[0];
   const carry = { type: best ? best.type : 'lemon', level: Math.min(best ? best.level : 1, S.ch === 0 ? 2 : 3), bonus: r10(Math.min(1500, Math.max(0, netWorth()) * 0.1)) };
   setupChapter(S.ch + 1, carry);
-  layout(); refreshLinks();
+  cam.x = 0; layout(); refreshLinks(); focusLot(S.sel);
   showChapterIntro(carry);
 }
 function showChapterIntro(carry) {
@@ -1361,7 +1362,16 @@ function showStart() {
    <div class="map">${nodes}</div>
    <div class="btns">${saved ? `<button class="btn go" id="mCont">Continue<small>${CHAPTERS[saved.ch].name} · day ${saved.day}</small></button><button class="btn" id="mNew">New game</button>` : `<button class="btn go" id="mNew">Open the shop</button>`}</div>
    <button class="link" id="mHow2">How to play</button>`, 'start');
-  bind('mCont', () => { S = saved; afterLoad(); hideModal(); music('music_game'); S.paused = false; renderPanel(); hudControls(); if (S.ended) startDay(); });
+  bind('mCont', () => {
+    S = saved; afterLoad(); hideModal(); music('music_game');
+    if (S.ended && !S.free) {
+      // The save is from the end of a street: show that result again.
+      const end = youCount() >= ch().goal ? 'win' : rivCount() >= ch().rivalGoal ? 'rival' : S.day >= ch().days ? 'time' : 'broke';
+      if (end === 'win') showChapterWin(); else showLose(end);
+      return;
+    }
+    S.ended = false; S.paused = false; renderPanel(); hudControls(); dayBanner();
+  });
   bind('mNew', () => {
     if (saved) {
       showModal(`<h3>Start a new game?</h3><p>Your saved game will be gone.</p><div class="btns"><button class="btn" id="mNo">Keep my game</button><button class="btn go" id="mYes">New game</button></div>`);
@@ -1421,6 +1431,7 @@ function botReport(r, end) { botLog = { r, end }; }
 /* ---------------- boot ---------------- */
 new ResizeObserver(() => { resize(); }).observe(cv);
 newGame();
+booting = false;
 resize(); refreshLinks();
 renderPanel(); hudControls();
 if (!BOT) showStart();
