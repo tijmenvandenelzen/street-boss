@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Street Boss</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Grow a lemonade cart into a whole street of shops. A business game for iPhone, iPad and Mac.">
+<meta name="theme-color" content="#140f26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Street Boss">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Fredoka:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div class="money">
+      <div class="cash"><span id="cashV">$0</span><small id="cashDelta"></small></div>
+      <div class="pill fans" id="fansPill" hidden>❤️ <span id="fansV">0</span></div>
+    </div>
+    <div class="day"><b id="dayLbl">Day 1</b><div class="clock"><i id="clockBar"></i></div><span class="street" id="streetName">Maple Street</span></div>
+    <div class="race">
+      <div class="pill you" title="Lots you own"><i></i><span class="who">You</span><span id="youLots">1/3</span></div>
+      <div class="pill riv" title="Lots your rival owns"><i></i><span class="who" id="rivName">Rival</span><span id="rivLots">1/3</span></div>
+    </div>
+    <div class="ctrl">
+      <button id="bPause" aria-label="Pause">❚❚</button>
+      <button id="bSpeed" aria-label="Game speed">1×</button>
+      <button id="bMenu" aria-label="Menu">☰</button>
+    </div>
+  </header>
+  <main id="stage">
+    <canvas id="cv" aria-label="Your street. Tap a building to select it."></canvas>
+    <div id="toast" role="status"></div>
+    <button id="taskChip" hidden></button>
+  </main>
+  <section id="panel"></section>
+</div>
+<div id="modal" hidden><div class="card" id="modalCard" role="dialog" aria-modal="true"></div></div>
+<script type="module" src="js/game.js"></script>
+</body>
+</html>
