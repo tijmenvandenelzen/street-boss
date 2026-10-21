@@ -59,8 +59,8 @@ export const CHAPTERS = [
   {
     id: 'maple', name: 'Maple Street', blurb: 'A quiet street with a few small shops.', lots: 5, days: 20, goal: 3, rivalGoal: 3,
     levelCap: 3, types: ['lemon', 'coffee', 'burger'], traffic: 50, lotBase: 300, theme: 'suburb',
-    you: { lot: 0 }, rivalStart: [[4, 1]], rival: { type: 'quick', funding: [6, 1], lotCost: [600, 300], buyProb: 0.4, startDelay: 2, cut: 0.6, upProb: 0.35 },
-    unlocks: [{ id: 'staff', day: 2 }, { id: 'lots', day: 3 }, { id: 'quality', day: 6 }],
+    you: { lot: 0 }, rivalStart: [[4, 1]], rival: { type: 'quick', funding: [12, 1.5], lotCost: [500, 250], buyProb: 0.5, startDelay: 2, cut: 0.6, upProb: 0.35, saves: true },
+    unlocks: [{ id: 'staff', day: 2 }, { id: 'lots', day: 4 }, { id: 'quality', day: 7 }],
     startCash: 200,
   },
   {

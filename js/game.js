@@ -23,6 +23,8 @@ function sfx(name, opts) {
     sound.play(name, opts);
   } catch (e) { /* ignore */ }
 }
+const lastAt = {};
+function sfxGap(name, gap, opts) { const n = performance.now(); if (n - (lastAt[name] || 0) < gap * 1000) return; lastAt[name] = n; sfx(name, opts); }
 function music(name) { if (!BOT) try { sound.music(name, { fade: 0.8 }); } catch (e) { /* ignore */ } }
 
 /* ---------------- state ---------------- */
@@ -34,7 +36,7 @@ const has = (c) => !!S.unlocked[c];
 const perk = (p) => S.perks.includes(p);
 function newLot() {
   return { owner: null, type: null, level: 0, staff: 0, quality: 0, price: 1, rating: 3, sig: false, flash: 0,
-    queue: [], inside: [], today: { rev: 0, served: 0, lost: 0 }, pop: 0, buildT: 0 };
+    queue: [], inside: [], today: { rev: 0, served: 0, lost: 0 }, pop: 0, buildT: 0, from: 0, fresh: false };
 }
 function newGame() {
   S = { v: 2, ch: 0, day: 1, t: 0, cash: 0, fans: 0, lots: [], rival: { cash: 0, war: 0 }, city: {}, effects: [], loans: [],
@@ -197,7 +199,7 @@ function step(dt) {
       const tx = p.target >= 0 && p.state === 'walk' ? door(p.target) : null;
       if (tx !== null && Math.abs(p.x - tx) < 0.06) {
         const l = S.lots[p.target];
-        if (!l.type || l.buildT > 0) { p.target = -1; p.state = 'leave'; continue; }
+        if (!l.type) { p.target = -1; p.state = 'leave'; continue; }
         if (l.queue.length < LV.cap[l.level - 1] && S.t < 0.98) { p.state = 'queue'; l.queue.push(p); }
         else {
           l.today.lost++; p.mood = { e: '😠', t: 1.6 }; p.target = -1; p.state = 'leave';
@@ -211,8 +213,6 @@ function step(dt) {
     if (p.mood) { p.mood.t -= dt; if (p.mood.t <= 0) p.mood = null; }
   }
   S.lots.forEach((l, i) => {
-    if (l.buildT > 0) l.buildT = Math.max(0, l.buildT - dt);
-    if (l.pop > 0) l.pop = Math.max(0, l.pop - dt * 1.6);
     if (!l.type) return;
     for (const s of l.inside) s.left -= dt;
     for (let k = l.inside.length - 1; k >= 0; k--) {
@@ -225,11 +225,11 @@ function step(dt) {
       p.state = 'leave'; p.target = -1; p.x = door(i); p.hidden = false;
       if (l.owner === 'you') {
         S.cash += m; S.history.totalRev += m; S.history.served++; S.dayServed++;
-        sfx('coin'); addFx(door(i), '+$' + m, '#ffc23d');
+        sfx('coin'); addFx(door(i), '+$' + m, '#ffc23d'); flyCoin(i);
         p.bag = TYPES[l.type].c1;
         if (has('fans')) {
           const ch2 = Math.max(0, l.rating - 2.5) * 0.12 * (perk('fanclub') ? 1.5 : 1);
-          if (Math.random() < ch2) { S.fans++; p.mood = { e: '❤️', t: 1.3 }; }
+          if (Math.random() < ch2) { S.fans++; p.mood = { e: '❤️', t: 1.3 }; sfxGap('bubble_pop', 0.4, { volume: 0.22, pitchVariance: 0.25 }); }
         }
         // combo: walk on to a partner neighbor
         if (!p.chained && has('combos')) {
@@ -332,12 +332,22 @@ function endDay() {
     l.rating = Math.max(1, Math.min(5, l.rating + (target - l.rating) * 0.5));
   });
   const news = rivalTurn();
-  if (S.rival.war > 0) S.rival.war--;
+  if (S.rival.war > 0) {
+    S.rival.war--;
+    if (!S.rival.war) {
+      // The war is over: matched shops go back to their old price.
+      let back = 0;
+      for (const l of S.lots) if (l.oldPrice != null) { if (l.owner === 'you' && l.price === 0) { l.price = l.oldPrice; back++; } l.oldPrice = null; }
+      news.push({ e: '🕊️', t: `The price war is over.${back ? ' Your prices are back to normal.' : ''}` });
+    }
+  }
   const profit = rev - costs;
+  const prev = S.day > 1 ? S.lastProfit : null;
+  const record = S.day > 2 && profit > 0 && profit > S.history.bestProfit * 1.1;
   S.lastProfit = profit;
   S.history.bestProfit = Math.max(S.history.bestProfit, profit);
   checkTasks(true);
-  const report = { day: S.day, rev, rentSum, wages, loanPay, profit, served, lost, news, best };
+  const report = { day: S.day, rev, rentSum, wages, loanPay, profit, served, lost, news, best, prev, record };
   if (S.cash < 0) S.debtDays++; else S.debtDays = 0;
   let end = null;
   if (!S.free) {
@@ -363,14 +373,15 @@ function rivalTurn() {
     const nearYou = empty.filter((i) => [i - 1, i + 1].some((j) => S.lots[j] && isShop(S.lots[j])));
     const i = nearYou.length && Math.random() < 0.6 ? pick(nearYou) : pick(empty);
     R.cash -= rivalLotCost();
-    Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: 1 + (S.day > 15 ? 1 : 0) + (S.ch === 2 ? 1 : 0), rating: 3, pop: 1, buildT: 1 });
+    Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: 1 + (S.day > 15 ? 1 : 0) + (S.ch === 2 ? 1 : 0), rating: 3, fresh: true });
     news.push({ e: '🔴', t: `${name} opened a store on lot ${i + 1}.`, bad: true });
     if (!BOT) sfx('rival_alert');
   } else if (mine.length) {
     const l = mine.filter((x) => x.level < ch().levelCap).sort((a, b) => a.level - b.level)[0];
     if (l) {
       const c = Math.round(500 * l.level * 1.1);
-      if (R.cash >= c * 1.2 && Math.random() < C.upProb) { R.cash -= c; l.level++; l.pop = 1; l.buildT = 1; news.push({ e: '🔴', t: `${name} made its store on lot ${S.lots.indexOf(l) + 1} bigger.`, bad: true }); }
+      const saving = C.saves && empty.length && has('lots') ? rivalLotCost() : 0;
+      if (R.cash >= c * 1.2 + saving && Math.random() < C.upProb) { R.cash -= c; l.from = l.level; l.level++; l.fresh = true; news.push({ e: '🔴', t: `${name} made its store on lot ${S.lots.indexOf(l) + 1} bigger.`, bad: true }); }
       else if (l.staff < 3 && R.cash > 300 && Math.random() < 0.3) { R.cash -= 150; l.staff++; }
     }
   }
@@ -389,7 +400,11 @@ function queueMorning() {
   for (const id of S.pendingUnlocks || []) q.push(() => showUnlock(id));
   S.pendingUnlocks = [];
   if (has('news')) { const ev = rollEvent(); if (ev) q.push(() => showEvent(ev)); }
-  runQueue(q, () => { S.paused = false; refreshLinks(); renderPanel(); dayBanner(); });
+  runQueue(q, () => {
+    S.paused = false; refreshLinks(); renderPanel(); dayBanner();
+    // Rival builds from last night appear now, so the player sees them grow.
+    S.lots.forEach((l) => { if (l.fresh) { l.fresh = false; l.buildT = 1; l.pop = 1; } });
+  });
 }
 function dayBanner() {
   if (BOT) return;
@@ -423,7 +438,7 @@ function EVENTS() {
       { t: 'Deep clean', s: '$100 · no risk', cost: 100, f: () => { S.cash -= 100; toast('Inspector: everything is spotless ✨'); } },
       { t: 'Take the risk', f: () => { const bad = shops.filter((l) => l.quality === 0 && l.level >= 2); if (bad.length && Math.random() < 0.6) { S.cash -= 250; bad.forEach((l) => (l.rating = Math.max(1, l.rating - 0.5))); toast('Fined $250, and your stars went down'); sfx('news_bad'); } else toast('The inspector was happy. Phew!'); } }] }) },
     { id: 'war', w: 1.2, ok: S.day >= 4 && S.rival.war <= 0, make: () => ({ icon: '⚔️', title: 'Price war!', text: `${name} puts all prices on Cheap for 3 days to steal your customers.`, choices: [
-      { t: 'Match prices', s: 'All your shops go Cheap', f: () => { S.rival.war = 3; shops.forEach((l) => (l.price = 0)); } },
+      { t: 'Match prices', s: 'Your shops go Cheap for 3 days', f: () => { S.rival.war = 3; shops.forEach((l) => { l.oldPrice = l.price; l.price = 0; }); } },
       { t: 'Keep my prices', f: () => { S.rival.war = 3; } }] }) },
     { id: 'loan', w: 0.7, ok: S.loans.length === 0 && S.day < ch().days - 6, make: () => { const a = 800 + 500 * S.ch; return { icon: '🏦', title: 'The bank calls', text: `You can borrow ${money(a)} now. You pay back ${money(a * 1.25)} in 6 days.`, choices: [
       { t: 'Take the loan', s: '+' + money(a) + ' now', f: () => { S.cash += a; S.loans.push({ amt: a * 1.25, due: S.day + 6 }); } },
@@ -432,8 +447,8 @@ function EVENTS() {
     { id: 'offer', w: 0.6, ok: shops.length >= 2 && rivCount() < ch().rivalGoal - 1, make: () => {
       const l = [...shops].sort((a, b) => shopValue(a) - shopValue(b))[0]; const i = S.lots.indexOf(l); const v = r10(shopValue(l) * 2 + lotPrice());
       return { icon: '💼', title: `${name} makes an offer`, text: `${name} wants to buy your ${TYPES[l.type].name} on lot ${i + 1} for ${money(v)}. That is a lot of money, but ${name} gets one lot closer to winning.`, choices: [
-        { t: 'Sell it', s: '+' + money(v), f: () => { S.cash += v; Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: Math.max(1, Math.min(l.level, ch().levelCap)), rating: 3, pop: 1 }); } },
-        { t: 'Not for sale', f: () => {} }] }; } },
+        { t: 'Not for sale', f: () => {} },
+        { t: 'Sell it', s: '+' + money(v), f: () => { S.cash += v; Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: Math.max(1, Math.min(l.level, ch().levelCap)), rating: 3, fresh: true }); } }] }; } },
     { id: 'trend', w: 0.8, ok: shops.length > 0, make: () => { const l = pick(shops); const i = S.lots.indexOf(l);
       return { icon: '📈', good: true, title: 'You are trending!', text: `A video about your ${TYPES[l.type].name} on lot ${i + 1} has 2 million views. It will be extra busy for 2 days.`, choices: [{ t: 'Awesome', f: () => { S.effects.push({ kind: 'trend', lot: i, until: S.day + 1 }); l.rating = Math.min(5, l.rating + 0.3); } }] }; } },
     { id: 'quit', w: 0.6, ok: shops.some((l) => l.staff > 0), make: () => { const l = pick(shops.filter((x) => x.staff > 0)); const i = S.lots.indexOf(l);
@@ -461,6 +476,7 @@ function spend(c) {
 }
 function act(kind, arg) {
   const i = S.sel, l = S.lots[i];
+  const combosBefore = new Set(linkCache.filter((k) => k.kind === 'combo').map((k) => k.a + k.name));
   switch (kind) {
     case 'buyLot':
       if (!has('lots')) return;
@@ -468,11 +484,11 @@ function act(kind, arg) {
       break;
     case 'build': {
       const T = TYPES[arg];
-      if (spend(T.build)) { Object.assign(l, { type: arg, level: 1, rating: 3, pop: 1, buildT: 1 }); sfx('upgrade_buy'); toast(`${T.name} cart is open!`); confetti(i, 30); bigFx(i, 'OPEN!'); }
+      if (spend(T.build)) { Object.assign(l, { type: arg, level: 1, rating: 3, pop: 1, buildT: 1, from: 0 }); sfx('upgrade_buy'); toast(`${T.name} cart is open!`); confetti(i, 30); bigFx(i, 'OPEN!'); }
       break;
     }
     case 'up':
-      if (l.level < ch().levelCap && spend(upCost(l))) { l.level++; l.pop = 1; l.buildT = 1; sfx('upgrade_buy'); toast(`Your ${TYPES[l.type].name} is now a ${LV.name[l.level - 1]}!`); confetti(i, 40); bigFx(i, LV.name[l.level - 1].toUpperCase() + '!'); }
+      if (l.level < ch().levelCap && spend(upCost(l))) { l.from = l.level; l.level++; l.pop = 1; l.buildT = 1; sfx('upgrade_buy'); toast(`Your ${TYPES[l.type].name} is now a ${LV.name[l.level - 1]}!`); confetti(i, 40); bigFx(i, LV.name[l.level - 1].toUpperCase() + '!'); }
       break;
     case 'staff': if (has('staff') && l.staff < 3 && spend(staffCost(l))) { l.staff++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); } break;
     case 'qual': if (has('quality') && l.quality < 3 && spend(qualCost(l))) { l.quality++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); toast('Better quality: stars go up tonight'); } break;
@@ -497,9 +513,20 @@ function act(kind, arg) {
     }
   }
   refreshLinks();
+  for (const k of linkCache) if (k.kind === 'combo' && !combosBefore.has(k.a + k.name)) comboFx(k);
   checkTasks(true);
   renderPanel();
   save();
+}
+function comboFx(k) {
+  if (BOT) return;
+  // Wait for the OPEN! banner to finish first.
+  setTimeout(() => {
+    for (const f of S.fx) if (f.big) f.life = Math.min(f.life, 0.2);
+    S.fx.push({ x: k.a + 1, y: 0, txt: k.name.toUpperCase() + '!', life: 2.4, big: true, combo: true });
+    confetti(k.a + 0.5, 36); sfx('country_reached');
+    toast(`🔗 ${k.name}! Both shops get more customers`);
+  }, 900);
 }
 
 /* ---------------- canvas ---------------- */
@@ -571,6 +598,7 @@ function skyAt(t) {
   return [SKY[5][1], SKY[5][2]];
 }
 function rr(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); else ctx.rect(x, y, w, h); }
+const HEIGHT = [0.75, 1.15, 1.9, 2.9, 4.3];
 const EMOJI_FONT = '"Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif';
 let particles = [];
 function confetti(i, n, gold) {
@@ -602,6 +630,7 @@ function draw(dtReal) {
     drawLot(S.lots[i], i, x0, night);
   }
   drawLinks(ox);
+  drawReady(ox);
   // pavement + road
   const pav = ch().theme === 'suburb' ? '#d6ccb8' : ch().theme === 'market' ? '#cdbfae' : '#bdb6ae';
   ctx.fillStyle = pav; ctx.fillRect(0, gy, W, G.pavH);
@@ -623,13 +652,13 @@ function draw(dtReal) {
     ctx.globalAlpha = Math.min(1, f.life * 1.5);
     const x = ox + f.x * lw;
     if (f.big) {
-      const age = 2 - f.life, sc = Math.min(1, age * 5) * (1 + Math.max(0, 0.25 - age) * 2);
-      const l = S.lots[Math.floor(f.x)];
-      const top = gy - fh * ([0.75, 1.15, 1.9, 2.9, 4.3][(l.level || 1) - 1] + 0.7) - f.y * 20;
-      ctx.font = `${Math.round(24 * G.s)}px "Lilita One",sans-serif`;
+      const age = (f.combo ? 2.4 : 2) - f.life, sc = Math.min(1, age * 5) * (1 + Math.max(0, 0.25 - age) * 2);
+      const l = S.lots[Math.min(S.lots.length - 1, Math.floor(f.x))];
+      const top = gy - fh * (f.combo ? 1.75 : HEIGHT[(l.level || 1) - 1] + 0.7) - f.y * 20;
+      ctx.font = `${Math.round((f.combo ? 20 : 24) * G.s)}px "Lilita One",sans-serif`;
       const half = ctx.measureText(f.txt).width / 2 + 8;
-      ctx.save(); ctx.translate(Math.max(half, Math.min(W - half, x)), Math.max(30, top)); ctx.scale(sc, sc); ctx.lineWidth = 6; ctx.strokeStyle = '#c2410c';
-      ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = '#ffd23f'; ctx.fillText(f.txt, 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(Math.max(half, Math.min(W - half, x)), Math.max(30, top)); ctx.scale(sc, sc); ctx.lineWidth = 6; ctx.strokeStyle = f.combo ? '#0d3b27' : '#c2410c';
+      ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = f.combo ? '#3ddc97' : '#ffd23f'; ctx.fillText(f.txt, 0, 0); ctx.restore();
       ctx.font = `${Math.round(14 * G.s)}px "Lilita One",sans-serif`; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,20,50,.8)';
       continue;
     }
@@ -719,6 +748,9 @@ function drawLot(l, i, x0, night) {
     ctx.fillStyle = '#8a6a4a'; ctx.fillRect(x0 + w / 2 - 2, sy + sh, 4, fh * 0.6);
     const locked = !has('lots') && !l.owner;
     rr(sx, sy, sw, sh, 7); ctx.fillStyle = l.owner ? '#3ddc97' : locked ? '#d9d2c4' : '#fff4e0'; ctx.fill();
+    if (!l.owner && !locked && S.cash >= lotPrice() && !S.ended) {
+      ctx.save(); ctx.strokeStyle = '#ffc23d'; ctx.lineWidth = 3 + Math.sin(performance.now() / 180) * 1.2; ctx.shadowColor = '#ffc23d'; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore();
+    }
     ctx.fillStyle = '#1d1633'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fs = Math.max(10, Math.min(17, sw / 6.2));
     ctx.font = `${fs}px "Lilita One",sans-serif`;
@@ -731,9 +763,12 @@ function drawLot(l, i, x0, night) {
   const T = riv ? rt() : TYPES[l.type], L = l.level;
   const building = l.buildT > 0;
   const pop = l.pop > 0 ? 1 + Math.sin(l.pop * Math.PI) * 0.1 : 1;
-  ctx.save(); ctx.translate(x0 + w / 2, gy); ctx.scale(1 / Math.sqrt(pop), pop);
-  if (building) ctx.globalAlpha = 0.35 + 0.65 * (1 - l.buildT);
-  const bw = w * [0.62, 0.78, 0.88, 0.92, 0.92][L - 1], bh = fh * [0.75, 1.15, 1.9, 2.9, 4.3][L - 1];
+  // A build up grows the building from its old height, with a small overshoot.
+  let grow = 1;
+  if (building && (l.from || 0) < L) { const r0 = l.from ? HEIGHT[l.from - 1] / HEIGHT[L - 1] : 0.2, u = -l.buildT; grow = r0 + (1 - r0) * (1 + 2.7 * u * u * u + 1.7 * u * u); }
+  ctx.save(); ctx.translate(x0 + w / 2, gy); ctx.scale(1 / Math.sqrt(pop), pop * grow);
+  if (building) ctx.globalAlpha = 0.6 + 0.4 * (1 - l.buildT);
+  const bw = w * [0.62, 0.78, 0.88, 0.92, 0.92][L - 1], bh = fh * HEIGHT[L - 1];
   const X = -bw / 2, Y = -bh;
   const main = T.c1, accent = T.c2, roof = T.roof;
   if (L === 1) {
@@ -840,12 +875,32 @@ function drawLinks(ox) {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = k.sig ? '#5a3a00' : '#0d3b27'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, 1);
     } else {
-      ctx.translate(x, y);
-      ctx.fillStyle = '#ff5c6c'; ctx.beginPath(); ctx.arc(0, 0, r * 0.85, 0, 7); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = `${Math.round(r)}px "Lilita One",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('=', 0, 1);
+      const fs = Math.round(r * 0.95), txt = '−15%';
+      ctx.translate(x, y); ctx.font = `${fs}px "Lilita One",sans-serif`;
+      const tw = ctx.measureText(txt).width + fs * 0.9;
+      rr(-tw / 2, -r * 0.75, tw, r * 1.5, r * 0.75); ctx.fillStyle = '#ff5c6c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, 1);
     }
     ctx.restore();
   }
+}
+// A bouncing arrow over each shop you can build up right now.
+function drawReady(ox) {
+  if (S.ended) return;
+  const tt = performance.now() / 1000, r = Math.max(10, Math.min(16, G.lotW * 0.13));
+  S.lots.forEach((l, i) => {
+    if (!isShop(l) || l.level >= ch().levelCap || l.buildT > 0 || S.cash < upCost(l)) return;
+    const x = ox + door(i) * G.lotW;
+    if (x < -20 || x > W + 20) return;
+    const L = l.level, top = G.groundY - G.fh * (HEIGHT[L - 1] + (L === 1 ? 0.55 : L === 5 ? 0.8 : 0.15));
+    const y = Math.max(r + 4, top - r - 6 - Math.abs(Math.sin(tt * 3.2 + i)) * 7);
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = '#ffc23d'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#7a2e00'; ctx.beginPath(); ctx.moveTo(0, -r * 0.55); ctx.lineTo(r * 0.5, r * 0.05); ctx.lineTo(r * 0.2, r * 0.05); ctx.lineTo(r * 0.2, r * 0.5);
+    ctx.lineTo(-r * 0.2, r * 0.5); ctx.lineTo(-r * 0.2, r * 0.05); ctx.lineTo(-r * 0.5, r * 0.05); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
 }
 function drawPerson(p, ox) {
   const s = G.s * (p.kid ? 0.8 : 1), x = ox + p.x * G.lotW, y = G.groundY + G.pavH * (0.28 + p.lane * 0.45);
@@ -1168,6 +1223,24 @@ function hudPills() {
   document.getElementById('fansPill').hidden = !has('fans');
   document.getElementById('streetName').textContent = ch().name;
 }
+// Coins fly from a shop up to your cash.
+let lastFly = 0;
+function flyCoin(i) {
+  if (BOT || document.hidden) return;
+  const now = performance.now();
+  if (now - lastFly < 170 / Math.min(S.speed, 2)) return;
+  const x = (door(i) - cam.x) * G.lotW;
+  if (x < 0 || x > W) return;
+  lastFly = now;
+  const r = cv.getBoundingClientRect(), c = document.getElementById('cashV').getBoundingClientRect();
+  const sx = r.left + x, sy = r.top + G.groundY - G.fh * 0.55, dx = c.left + c.width * 0.6 - sx, dy = c.top + c.height / 2 - sy;
+  const el = document.createElement('i'); el.className = 'coin'; el.style.left = sx + 'px'; el.style.top = sy + 'px';
+  document.body.appendChild(el);
+  const T = (tx, ty, sc) => `translate(-50%,-50%) translate(${tx}px,${ty}px) scale(${sc})`;
+  const a = el.animate([{ transform: T(0, 0, 0.4), opacity: 0 }, { transform: T(dx * 0.25, Math.min(0, dy) * 0.4 - 30, 1.1), opacity: 1, offset: 0.3 }, { transform: T(dx, dy, 0.55), opacity: 0.9 }],
+    { duration: 700, easing: 'cubic-bezier(.45,0,.7,1)' });
+  a.onfinish = () => { el.remove(); const k = document.querySelector('.cash'); k.classList.remove('bump'); void k.offsetWidth; k.classList.add('bump'); };
+}
 let cdT = 0;
 function flashCash(d) {
   const e = document.getElementById('cashDelta');
@@ -1205,8 +1278,10 @@ function showReport(r, end) {
     ${row('Rent', '−' + money(r.rentSum), 'neg')}
     ${r.wages ? row('Staff pay', '−' + money(r.wages), 'neg') : ''}
     ${r.loanPay ? row('Loan payback', '−' + money(r.loanPay), 'neg') : ''}
-    <span class="sum">Profit</span><span class="sum ${r.profit >= 0 ? 'pos' : 'neg'}">${r.profit >= 0 ? '+' : '−'}${money(Math.abs(r.profit))}</span>
+    <span class="sum">Profit</span><span class="sum ${r.profit >= 0 ? 'pos' : 'neg'}" id="rProfit">${r.profit >= 0 ? '+' : '−'}${money(Math.abs(r.profit))}</span>
   </div>`;
+  if (r.record) h += `<div class="record">🎉 Best day ever!</div>`;
+  else if (r.prev != null && r.profit > r.prev && r.profit > 0) h += `<div class="record small">▲ ${money(r.profit - r.prev)} more than yesterday</div>`;
   const notes = [...r.news];
   if (r.best && r.best.today.rev > 0 && own('you').filter((l) => l.type).length > 1) notes.push({ e: '🏆', t: `Best shop: ${TYPES[r.best.type].name} on lot ${S.lots.indexOf(r.best) + 1} with ${money(r.best.today.rev)}.` });
   if (r.lost > 0) notes.push({ e: '😠', t: `${r.lost} ${r.lost === 1 ? 'customer' : 'customers'} walked away from a full line.${has('staff') ? ' More staff or a bigger shop helps.' : ''}` });
@@ -1222,8 +1297,15 @@ function showReport(r, end) {
   }
   h += `<div class="btns"><button class="btn go" id="mNext">Start day ${r.day + 1}</button></div>`;
   showModal(h);
-  if (r.profit > 0) sfx('cash_in'); else sfx('news_bad');
+  countUp(document.getElementById('rProfit'), r.profit);
+  if (r.record) sfx('milestone'); else if (r.profit > 0) sfx('cash_in'); else sfx('news_bad');
   bind('mNext', startDay);
+}
+function countUp(el, v) {
+  if (!el || v <= 0) return;
+  const t0 = performance.now(), dur = 700;
+  const f = (now) => { const u = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - u, 3); el.textContent = '+' + money(v * e); if (u < 1 && el.isConnected) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
 }
 function showUnlock(id) {
   const c = CONCEPTS[id];
@@ -1235,7 +1317,7 @@ function showUnlock(id) {
   bind('mOk', next);
 }
 function showEvent(ev) {
-  if (BOT) { const c = ev.choices[ev.choices.length - 1]; c.f(); next(); return; }
+  if (BOT) { const c = ev.choices.find((x) => /^(No|Not|Keep|Stay|Let)/.test(x.t)) || ev.choices[ev.choices.length - 1]; c.f(); next(); return; }
   let h = `<div class="kicker">Morning news · Day ${S.day}</div><div class="emoji">${ev.icon}</div><h3>${ev.title}</h3><p>${ev.text}</p><div class="btns">`;
   ev.choices.forEach((c, k) => { h += `<button class="btn ${k === 0 ? 'go' : ''}" data-c="${k}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`; });
   showModal(h + '</div>');
@@ -1416,6 +1498,7 @@ function frame(now) {
     else if (Math.abs(cam.vx) > 0.05) { cam.x = Math.max(0, Math.min(G.maxCam || 0, cam.x + cam.vx * dt)); cam.vx *= Math.pow(0.04, dt); }
   }
   if (S) {
+    for (const l of S.lots) { if (l.buildT > 0) l.buildT = Math.max(0, l.buildT - dt); if (l.pop > 0) l.pop = Math.max(0, l.pop - dt * 1.6); }
     for (const f of S.fx) { f.life -= dt * (f.big ? 1 : Math.min(S.speed, 2)); f.y += dt * 0.5; }
     S.fx = S.fx.filter((f) => f.life > 0);
     draw(dt); hud(); const ps = S.paused + ':' + modalOpen() + ':' + S.speed; if (ps !== lastPs) { lastPs = ps; hudControls(); } }
