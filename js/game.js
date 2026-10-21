@@ -49,7 +49,7 @@ function setupChapter(i, carry) {
   const C = CHAPTERS[i];
   S.ch = i; S.day = 1; S.t = 0; S.ended = false; S.debtDays = 0; S.effects = []; S.loans = []; S.city = {};
   S.rival = { cash: 250 + i * 300, war: 0 };
-  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0;
+  S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = [];
   S.lots = [];
   for (let k = 0; k < C.lots; k++) S.lots.push(newLot());
   const start = S.lots[C.you.lot];
@@ -70,6 +70,7 @@ const isShop = (l) => l.owner === 'you' && l.type;
 const effect = (k) => S.effects.find((e) => e.kind === k && e.until >= S.day);
 const money = (n) => (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
 const r10 = (n) => Math.round(n / 10) * 10;
+const r5 = (n) => Math.round(n / 5) * 5;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 /* ---------------- economy ---------------- */
@@ -255,6 +256,13 @@ function step(dt) {
   if (Math.random() < dt * (0.25 + 0.1 * S.ch)) S.cars.push({ x: Math.random() < 0.5 ? -1 : N + 1, dir: 0, c: pick(['#ff5c6c', '#4ea1ff', '#ffd23f', '#3ddc97', '#f4f4f4', '#7b5cff']), kind: Math.random() < 0.15 ? 'van' : 'car' });
   for (const c of S.cars) { if (!c.dir) c.dir = c.x < 0 ? 1 : -1; c.x += c.dir * dt * 2.2; }
   S.cars = S.cars.filter((c) => c.x > -1.5 && c.x < N + 1.5);
+  // Now and then a happy customer leaves a tip. Tap it to collect.
+  if (!BOT && S.t < 0.9 && Math.random() < dt / 11) {
+    const mine = S.lots.map((l, i) => i).filter((i) => isShop(S.lots[i]) && !(S.bubbles || []).some((b) => b.i === i));
+    if (mine.length) { const i = pick(mine), l = S.lots[i]; (S.bubbles = S.bubbles || []).push({ i, v: Math.max(5, r5(ticket(l) * 1.6 * l.level)), life: 7, t: 0 }); }
+  }
+  for (const b of S.bubbles || []) { b.life -= dt; b.t += dt; }
+  if (S.bubbles) S.bubbles = S.bubbles.filter((b) => b.life > 0);
   checkTasks();
   if (S.t >= 1) endDay();
 }
@@ -388,7 +396,7 @@ function rivalTurn() {
   return news;
 }
 function startDay() {
-  S.day++; S.t = 0; S.spawnAcc = 0; S.people = []; S.fx = []; S.dayServed = 0;
+  S.day++; S.t = 0; S.spawnAcc = 0; S.people = []; S.fx = []; S.dayServed = 0; S.bubbles = [];
   S.lots.forEach((l) => { l.queue = []; l.inside = []; l.today = { rev: 0, served: 0, lost: 0 }; });
   S.effects = S.effects.filter((e) => e.until >= S.day);
   for (const u of ch().unlocks) if (u.day <= S.day && !has(u.id) && !(S.pendingUnlocks || []).includes(u.id)) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
@@ -646,6 +654,7 @@ function draw(dtReal) {
   const ppl = S.people.filter((p) => !p.hidden).sort((a, b) => a.lane - b.lane);
   for (const p of ppl) drawPerson(p, ox);
   for (const c of S.cars) drawCar(c, ox, night);
+  drawBubbles(ox);
   // money floats
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = `${Math.round(14 * G.s)}px "Lilita One",sans-serif`;
@@ -886,6 +895,39 @@ function drawLinks(ox) {
     ctx.restore();
   }
 }
+function bubblePos(b, ox) {
+  const l = S.lots[b.i];
+  return { x: ox + door(b.i) * G.lotW + Math.sin(b.t * 2.2 + b.i) * 6, y: G.groundY - G.fh * (HEIGHT[(l.level || 1) - 1] * 0.55 + 0.35) - b.t * 4, r: Math.max(15, Math.min(24, G.lotW * 0.18)) };
+}
+function drawBubbles(ox) {
+  for (const b of S.bubbles || []) {
+    const { x, y, r } = bubblePos(b, ox);
+    if (x < -30 || x > W + 30) continue;
+    const a = Math.min(1, b.t * 3, b.life * 1.5), sc = Math.min(1, b.t * 4);
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.scale(sc, sc);
+    ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.strokeStyle = '#3ddc97'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(-r * 0.4, -r * 0.45, r * 0.18, 0, 7); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${Math.round(r * 0.95)}px ${EMOJI_FONT}`; ctx.fillText('💵', 0, -r * 0.12);
+    ctx.font = `${Math.round(r * 0.55)}px "Lilita One",sans-serif`; ctx.fillStyle = '#0d3b27'; ctx.fillText('+$' + b.v, 0, r * 0.58);
+    ctx.restore();
+  }
+}
+function tapBubble(x, y) {
+  const ox = -cam.x * G.lotW;
+  for (const b of S.bubbles || []) {
+    const q = bubblePos(b, ox);
+    if (Math.hypot(x - q.x, y - q.y) > q.r + 12) continue;
+    S.bubbles = S.bubbles.filter((o) => o !== b);
+    S.cash += b.v; flashCash(b.v); addFx(door(b.i), '+$' + b.v, '#3ddc97');
+    sfx('bubble_pop', { volume: 0.7, pitchVariance: 0.1 }); sfx('coin', { volume: 0.5 });
+    for (let k = 0; k < 3; k++) setTimeout(() => { lastFly = 0; flyCoin(b.i); }, k * 90);
+    S.tips = (S.tips || 0) + 1;
+    return true;
+  }
+  return false;
+}
 // A bouncing arrow over each shop you can build up right now.
 function drawReady(ox) {
   if (S.ended) return;
@@ -1013,6 +1055,7 @@ cv.addEventListener('pointerup', (e) => {
     const i = Math.max(0, Math.min(G.N - 1, Math.floor((x - miniRect.x0) / miniRect.cw)));
     cam.target = Math.max(0, Math.min(G.maxCam, i + 0.5 - G.vis / 2)); sfx('tick'); return;
   }
+  if (!modalOpen() && tapBubble(x, y)) return;
   const i = Math.max(0, Math.min(S.lots.length - 1, Math.floor(x / G.lotW + cam.x)));
   selectLot(i);
 });
@@ -1427,6 +1470,7 @@ function showMenu() {
 function showHow(back) {
   showModal(`<h3>How to play</h3><ul>
     <li><b>Tap a building</b> to see it. Tap <b>Build up</b> to make it bigger: more visitors and higher prices.</li>
+    <li>Tap the <b>💵 tips</b> that pop up over your shops for extra cash.</li>
     <li>Set the <b>price</b>. Cheap brings more people, Premium brings more money per sale.</li>
     <li>Every night you pay <b>rent and staff</b>. Keep your cash above $0!</li>
     <li>Buy <b>FOR SALE</b> lots before your rival does. The first to own enough lots wins the street.</li>
@@ -1477,10 +1521,10 @@ function beginNew() {
 }
 
 /* ---------------- save ---------------- */
-function serial() { return { ...S, people: [], fx: [], cars: [], lots: S.lots.map((l) => ({ ...l, queue: [], inside: [] })) }; }
+function serial() { return { ...S, people: [], fx: [], cars: [], bubbles: [], lots: S.lots.map((l) => ({ ...l, queue: [], inside: [] })) }; }
 function save() { if (BOT) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ } }
 function revive(s) {
-  s.t = 0; s.spawnAcc = 0; s.people = []; s.fx = []; s.cars = []; s.dayServed = 0;
+  s.t = 0; s.spawnAcc = 0; s.people = []; s.fx = []; s.cars = []; s.dayServed = 0; s.bubbles = [];
   s.lots.forEach((l) => { l.today = { rev: 0, served: 0, lost: 0 }; l.queue = []; l.inside = []; l.buildT = 0; });
   return s;
 }
@@ -1530,5 +1574,5 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && /github\.i
 window.__SB = {
   get S() { return S; }, set S(v) { S = v; }, step, act, startDay, endDay, newGame, setupChapter, goNextChapter, refreshLinks, layout,
   links, lotPrice, upCost, staffCost, qualCost, sigCost, buyoutCost, appeal, comboName, isShop, youCount, rivCount, TYPES, CHAPTERS, CITY, CONCEPTS,
-  get botLog() { const b = botLog; botLog = null; return b; }, queueMorning, selectLot, showStart, showPerks,
+  get G() { return G; }, get cam() { return cam; }, get botLog() { const b = botLog; botLog = null; return b; }, queueMorning, selectLot, showStart, showPerks,
 };
