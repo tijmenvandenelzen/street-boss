@@ -14,7 +14,7 @@ let lastCoin = 0;
 function sfx(name, opts) {
   if (BOT) return;
   try {
-    if (name === 'coin') {
+    if (name === 'coin' && !opts) {
       const n = performance.now();
       if (n - lastCoin < 160) return;
       lastCoin = n;
@@ -476,6 +476,8 @@ function spend(c) {
 }
 function act(kind, arg) {
   const i = S.sel, l = S.lots[i];
+  const ideaOf = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout' }[kind];
+  if (ideaOf && S.tryNew) delete S.tryNew[ideaOf];
   const combosBefore = new Set(linkCache.filter((k) => k.kind === 'combo').map((k) => k.a + k.name));
   switch (kind) {
     case 'buyLot':
@@ -1043,6 +1045,8 @@ function starStr(r) {
   return '★'.repeat(Math.floor(n)) + (n % 1 ? '<span class="half">★</span>' : '') + '<span class="off">' + '★'.repeat(5 - Math.ceil(n)) + '</span>';
 }
 function btn(kind, arg, t, s, c, extra = '', unit = '$') {
+  const idea = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout' }[kind];
+  if (idea && S.tryNew && S.tryNew[idea] && !extra.includes('max')) extra += ' newf';
   const cost = c == null ? '' : c;
   const cl = c == null ? '' : unit === '❤️' ? `<span class="c fan">${c} ❤️</span>` : `<span class="c">${money(c)}</span>`;
   return `<button class="act ${extra}" data-k="${kind}" data-a="${arg ?? ''}" data-cost="${unit === '$' ? cost : ''}" data-fans="${unit === '❤️' ? cost : ''}"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}${cl}</button>`;
@@ -1051,7 +1055,7 @@ function renderPanel() {
   if (!S) return;
   const l = S.lots[S.sel];
   const tabName = !l.owner ? `Lot ${S.sel + 1}` : l.owner === 'rival' ? rt().name : l.type ? TYPES[l.type].name : `Lot ${S.sel + 1}`;
-  const tabs = `<div class="tabs"><button data-tab="shop" class="${S.tab === 'shop' ? 'on' : ''}">${tabName}</button><button data-tab="plan" class="${S.tab === 'plan' ? 'on' : ''}">Boss plan${activeTasks().length ? ` <i class="dot">${activeTasks().length}</i>` : ''}</button></div>`;
+  const tabs = `<div class="tabs"><button data-tab="shop" class="${S.tab === 'shop' ? 'on' : ''}">${tabName}</button><button data-tab="plan" class="${S.tab === 'plan' ? 'on' : ''} ${S.tryNew && S.tryNew.city ? 'newf' : ''}">Boss plan${activeTasks().length ? ` <i class="dot">${activeTasks().length}</i>` : ''}</button></div>`;
   let h = '';
   if (S.tab === 'plan') h = planPanel();
   else if (!l.owner) h = lotPanel(l);
@@ -1310,6 +1314,7 @@ function countUp(el, v) {
 function showUnlock(id) {
   const c = CONCEPTS[id];
   S.unlocked[id] = true; refreshLinks();
+  S.tryNew = { ...(S.tryNew || {}), [id]: true };
   if (BOT) { next(); return; }
   showModal(`<div class="new">NEW</div><div class="emoji big">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p><div class="btns"><button class="btn go" id="mOk">Got it!</button></div>`, 'unlock');
   sfx('milestone');
@@ -1338,10 +1343,11 @@ function showChapterWin() {
   confettiScreen();
   showModal(`<div class="emoji big">🏆</div><h3>${last ? 'You are the Street Boss!' : C.name + ' is yours!'}</h3>
     <p>You own ${youCount()} lots on day ${S.day}. ${rt().name} ${last ? 'packed up and left the city.' : 'has to leave this street.'}</p>
-    <p class="bigstars">${'★'.repeat(stars)}<span class="off">${'★'.repeat(3 - stars)}</span></p>
+    <p class="bigstars">${[0, 1, 2].map((k) => `<span class="${k < stars ? 'on' : 'off'}" style="animation-delay:${0.35 + k * 0.32}s">★</span>`).join('')}</p>
     <p class="muted">Win before day ${Math.floor(C.days * 0.55) + 1} for 3 stars.</p>
     <div class="tbl"><span>Net worth</span><span>${money(netWorth())}</span><span>Total sales</span><span>${money(S.history.totalRev)}</span><span>Best day profit</span><span>${money(S.history.bestProfit)}</span>${has('fans') ? `<span>Fans</span><span>${S.fans} ❤️</span>` : ''}</div>
     <div class="btns">${last ? `<button class="btn" id="mFree">Keep playing</button><button class="btn go" id="mMenu">Main menu</button>` : `<button class="btn go" id="mNextCh">Next street: ${CHAPTERS[S.ch + 1].name}</button>`}</div>`, 'win');
+  for (let k = 0; k < stars; k++) setTimeout(() => sfx('coin', { volume: 0.8, rate: 1 + k * 0.15 }), 450 + k * 320);
   bind('mNextCh', showPerks);
   bind('mFree', () => { S.free = true; S.ended = false; for (const u of ch().unlocks) S.unlocked[u.id] = true; save(); hideModal(); startDay(); music('music_game'); });
   bind('mMenu', () => { save(); showStart(); });
