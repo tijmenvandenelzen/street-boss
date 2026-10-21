@@ -8,7 +8,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+html, body { height: 100%; height: 100dvh; margin: 0; overflow: hidden; overscroll-behavior: none; }
 body { background: var(--deep); color: var(--cream); font-family: var(--body); font-size: 15px; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 [hidden] { display: none !important; }
 button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; touch-action: manipulation; padding: 0; }
@@ -47,7 +47,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 /* Stage */
 #stage { grid-area: stage; position: relative; min-height: 0; border-radius: 18px; overflow: hidden; background: #2b2166; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-#toast { position: absolute; left: 50%; top: 10px; transform: translate(-50%, -8px); background: rgba(20, 15, 38, .9); padding: 8px 15px; border-radius: 999px; font-weight: 600; font-size: 14px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .25s, transform .25s; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
+#toast { position: absolute; left: 50%; top: 44px; transform: translate(-50%, -8px); background: rgba(20, 15, 38, .9); padding: 8px 15px; border-radius: 999px; font-weight: 600; font-size: 14px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .25s, transform .25s; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
 #taskChip { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); display: flex; align-items: center; gap: 6px; background: rgba(20, 15, 38, .82); padding: 6px 11px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
 #taskChip span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -77,6 +77,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .chip.bad { background: rgba(255, 92, 108, .14); color: var(--red); font-weight: 600; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .grid.two { grid-template-columns: repeat(2, 1fr); }
+.grid.one { grid-template-columns: 1fr; }
 .act { position: relative; background: var(--panel2); border-radius: 13px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; text-align: center; min-width: 0; min-height: 44px; border: 2px solid transparent; transition: transform .08s, opacity .2s; }
 .act:active { transform: scale(.96); }
 .act .t { font-weight: 700; font-size: 14px; line-height: 1.15; }
@@ -122,6 +123,17 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .bar i { flex: 1; border-radius: 4px; cursor: pointer; }
 .tbl { display: grid; grid-template-columns: 1fr auto; gap: 5px 16px; font-variant-numeric: tabular-nums; font-size: 14px; }
 .tbl .sum { font-weight: 700; border-top: 1px solid var(--line); padding-top: 6px; }
+
+.wide-only { display: none !important; }
+.slist { display: flex; flex-direction: column; gap: 4px; }
+.srow { display: grid; grid-template-columns: 20px 26px 1fr auto; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--panel2); text-align: left; font-size: 13.5px; border: 2px solid transparent; }
+.srow.on { border-color: var(--sun); }
+.srow .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.srow .i { font-size: 17px; text-align: center; font-family: var(--display); }
+.srow.riv { background: rgba(255, 92, 108, .12); } .srow.riv .i { color: var(--red); }
+.srow.free { background: transparent; border-style: dashed; border-color: var(--line); }
+.srow.free.on { border-color: var(--sun); }
+.srow .inf { color: var(--muted); font-size: 12.5px; white-space: nowrap; } .srow .inf b { color: var(--sun); font-weight: 600; }
 
 /* Modal */
 #modal { position: fixed; inset: 0; background: rgba(10, 7, 22, .66); display: grid; place-items: center; z-index: 20; padding: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
@@ -185,6 +197,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 @media (min-aspect-ratio: 1/1) and (min-width: 700px) {
   #app { grid-template-columns: minmax(0, 1fr) clamp(320px, 31vw, 400px); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "hud hud" "stage panel"; gap: 12px; }
   #panel { padding: 16px; gap: 12px; }
+  .wide-only { display: flex !important; }
   .phead h2 { font-size: 24px; }
   .act { padding: 10px 6px; }
 }
@@ -200,6 +213,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   .phead p { display: none; }
 }
 @media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .wide-only { display: none !important; }
+  .cash small { display: none; }
   #app { gap: 8px; grid-template-columns: minmax(0, 1fr) clamp(280px, 40vw, 360px); }
   #panel { padding: 10px; gap: 7px; }
   .pbody { gap: 7px; }

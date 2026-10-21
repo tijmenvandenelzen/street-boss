@@ -56,7 +56,7 @@ function setupChapter(i, carry) {
   S.sel = C.you.lot; S.tab = 'shop';
   S.camX = 0;
   for (const u of C.unlocks) if (u.day <= 1) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
-  if (i > 0 && !S.unlocked.staff) Object.assign(S.unlocked, { staff: true, lots: true, quality: true });
+  if (i > 0) Object.assign(S.unlocked, { staff: true, lots: true, quality: true });
   if (i > 1) Object.assign(S.unlocked, { combos: true, news: true, fans: true });
   try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
 }
@@ -71,14 +71,14 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 /* ---------------- economy ---------------- */
 const TT = (l) => (l.owner === 'rival' ? rt() : TYPES[l.type]);
-const lotPrice = () => r10(ch().lotBase * Math.pow(1.5, youCount() - 1) * (perk('bargain') ? 0.85 : 1));
+const lotPrice = () => r10(ch().lotBase * Math.pow(1.4, youCount() - 1) * (perk('bargain') ? 0.85 : 1));
 const upCost = (l) => r10(TYPES[l.type].upBase * LV.up[l.level - 1] * (perk('builder') ? 0.85 : 1));
 const staffCost = (l) => 60 * (l.staff + 1) * l.level;
 const qualCost = (l) => 100 * (l.quality + 1) * l.level;
 const sigCost = (l) => r10(800 + TYPES[l.type].build);
 const wage = (l) => 15 + 5 * l.level;
 const rent = (l) => Math.round(LV.rent[l.level - 1] * (1 + (l.owner === 'you' ? TYPES[l.type].build : 300) / 1500));
-const buyoutCost = (l) => 1000 + 900 * l.level + 300 * rivCount();
+const buyoutCost = (l) => 800 + 600 * l.level + 200 * rivCount();
 const rivalLotCost = () => { const c = ch().rival.lotCost; return c[0] + c[1] * Math.max(0, rivCount() - 1); };
 const priceOf = (l) => (l.owner === 'rival' && S.rival.war > 0 ? 0 : l.price);
 function ticket(l, price) {
@@ -227,7 +227,7 @@ function step(dt) {
         sfx('coin'); addFx(door(i), '+$' + m, '#ffc23d');
         p.bag = TYPES[l.type].c1;
         if (has('fans')) {
-          const ch2 = Math.max(0, l.rating - 2.5) * 0.05 * (perk('fanclub') ? 1.5 : 1);
+          const ch2 = Math.max(0, l.rating - 2.5) * 0.12 * (perk('fanclub') ? 1.5 : 1);
           if (Math.random() < ch2) { S.fans++; p.mood = { e: '❤️', t: 1.3 }; }
         }
         // combo: walk on to a partner neighbor
@@ -516,8 +516,10 @@ function layout() {
   const roadH = Math.max(24, Math.min(64, H * 0.1));
   const pavH = Math.max(32, Math.min(76, H * 0.12));
   const groundY = H - roadH - pavH;
-  const fh = Math.min((groundY - 30) / 4.8, lotW * 1.5);
-  G = { N, vis, lotW, roadH, pavH, groundY, fh, s: Math.max(0.75, Math.min(1.7, lotW / 64)), maxCam: Math.max(0, N - vis) };
+  // Floor height: the tallest building this street allows fills most of the sky.
+  const tallest = [0.75, 1.15, 1.9, 2.9, 4.3][ch().levelCap - 1] + 1.1;
+  const fh = Math.min((groundY - 30) / tallest, lotW * 1.25);
+  G = { N, vis, lotW, roadH, pavH, groundY, fh, s: Math.max(0.75, Math.min(2.1, Math.min(lotW / 64, fh / 46))), maxCam: Math.max(0, N - vis) };
   cam.x = Math.max(0, Math.min(G.maxCam, cam.x));
   makeBackdrop();
 }
@@ -533,9 +535,10 @@ function makeBackdrop() {
     while (x < worldW * layer + W) {
       let w, h, kind;
       if (theme === 'suburb') {
+        const k = Math.max(1, G.fh / 60);
         kind = rnd() < 0.55 ? 'tree' : 'house';
-        w = kind === 'tree' ? 26 + rnd() * 30 : 50 + rnd() * 50;
-        h = kind === 'tree' ? 40 + rnd() * 60 : 40 + rnd() * 40;
+        w = (kind === 'tree' ? 26 + rnd() * 30 : 50 + rnd() * 50) * k;
+        h = (kind === 'tree' ? 40 + rnd() * 60 : 40 + rnd() * 40) * k;
         h *= layer === 0.3 ? 0.8 : 1.15;
       } else if (theme === 'market') {
         kind = 'block'; w = 36 + rnd() * 60; h = (0.18 + rnd() * 0.32) * G.groundY * (layer === 0.3 ? 1.25 : 0.85);
@@ -543,7 +546,7 @@ function makeBackdrop() {
         kind = rnd() < 0.15 ? 'spire' : 'block'; w = 30 + rnd() * 70; h = (0.3 + rnd() * 0.55) * G.groundY * (layer === 0.3 ? 1.15 : 0.8);
       }
       backdrop.push({ layer, x, w, h, kind, win: rnd(), hue: rnd() });
-      x += w + (theme === 'suburb' ? 4 + rnd() * 20 : 2);
+      x += w + (theme === 'suburb' ? (4 + rnd() * 20) * Math.max(1, G.fh / 60) : 2);
     }
   }
 }
@@ -811,7 +814,11 @@ function drawLinks(ox) {
       ctx.translate(x, y); ctx.scale(pulse, pulse);
       ctx.fillStyle = k.sig ? '#ffd23f' : '#3ddc97'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.font = `${Math.round(r * 1.1)}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔗', 0, 1);
+      // two linked rings
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.18);
+      const rw = r * 0.42, rh = r * 0.3;
+      ctx.beginPath(); ctx.ellipse(-rw * 0.55, 0, rw, rh, 0, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(rw * 0.55, 0, rw, rh, 0, 0, 7); ctx.stroke();
     } else {
       ctx.translate(x, y);
       ctx.fillStyle = '#ff5c6c'; ctx.beginPath(); ctx.arc(0, 0, r * 0.85, 0, 7); ctx.fill();
@@ -976,6 +983,7 @@ function renderPanel() {
   else if (l.owner === 'you' && !l.type) h = buildPanel(l);
   else if (l.owner === 'you') h = shopPanel(l);
   else h = rivalPanel(l);
+  if (S.tab !== 'plan') h += streetList();
   P.innerHTML = tabs + `<div class="pbody">${h}</div>`;
   P.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; sfx('ui_tap'); renderPanel(); }));
   P.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => act(b.dataset.k, b.dataset.a)));
@@ -983,6 +991,18 @@ function renderPanel() {
   const m = document.getElementById('pMenu'); if (m) m.onclick = showMenu;
   refreshAfford();
   hudPills();
+}
+// Overview of every lot. Shown only on wide screens, where the panel has room.
+function streetList() {
+  const rows = S.lots.map((l, i) => {
+    let ic, name, info, cls = '';
+    if (l.owner === 'you' && l.type) { const T = TYPES[l.type]; ic = T.icon; name = `${T.name} <span class="lvl">${'●'.repeat(l.level)}</span>`; info = `<b>${money(l.today.rev)}</b> today`; }
+    else if (l.owner === 'you') { ic = '🏗️'; name = 'Your empty lot'; info = 'Pick a shop'; }
+    else if (l.owner === 'rival') { ic = rt().short[0]; name = rt().name; info = `${l.today.served} customers`; cls = 'riv'; }
+    else { ic = has('lots') ? '🪧' : '🚧'; name = has('lots') ? 'For sale' : 'Not for sale yet'; info = has('lots') ? money(lotPrice()) : ''; cls = 'free'; }
+    return `<button class="srow ${cls} ${i === S.sel ? 'on' : ''}" data-go="${i}"><span class="n">${i + 1}</span><span class="i">${ic}</span><span class="nm">${name}</span><span class="inf">${info}</span></button>`;
+  }).join('');
+  return `<div class="sec wide-only"><b>Your street</b><div class="slist">${rows}</div></div>`;
 }
 function hint() {
   const shops = own('you').filter((l) => l.type);
@@ -1010,19 +1030,23 @@ function shopPanel(l) {
   let h = `<div class="phead"><div class="ic" style="background:${T.c1}">${T.icon}</div><div class="hd"><h2>${l.sig ? T.sig : T.name + ' ' + LV.name[L - 1]}</h2><p><span class="stars">${starStr(l.rating)}</span> <span class="lvl">${'●'.repeat(L)}<span class="off">${'●'.repeat(cap - L)}</span></span> · ${T.tag}</p></div></div>
   <div class="stats"><span>Today <b id="stRev">${money(l.today.rev)}</b></span><span>Sold <b id="stSold">${l.today.served}</b></span>${lost}<span>Costs <b>${money(dayCosts(l))}</b>/night</span></div>`;
   h += hint() + neighborsText(i, l.type);
-  h += `<div class="grid">`;
-  if (L < cap) h += btn('up', '', `Build up → ${LV.name[L]}`, `+${Math.round((LV.appeal[L] / LV.appeal[L - 1] - 1) * 100)}% visitors · ${money(ticket({ ...l, level: L + 1 }))} a sale · line of ${LV.cap[L]}`, upCost(l), 'big');
+  h += `<div class="grid one">`;
+  if (L < cap) h += btn('up', '', `Build up → ${LV.name[L]}`, `+${Math.round((LV.appeal[L] / LV.appeal[L - 1] - 1) * 100)}% visitors, ${money(ticket({ ...l, level: L + 1 }))} a sale`, upCost(l), 'big');
   else if (L < 5) h += `<div class="act big max"><span class="t">Biggest size here</span><span class="s">Bigger buildings come in the next street</span></div>`;
   else h += `<div class="act big max"><span class="t">Tower!</span><span class="s">As big as it gets</span></div>`;
-  if (has('staff')) h += btn('staff', '', `Staff ${l.staff}/3`, `Serve ${servers(l) + 1} at once`, l.staff < 3 ? staffCost(l) : null, l.staff >= 3 ? 'max' : '');
-  if (has('quality')) h += btn('qual', '', `Quality ${l.quality}/3`, 'More stars', l.quality < 3 ? qualCost(l) : null, l.quality >= 3 ? 'max' : '');
-  if (has('fans')) h += btn('camp', 'flash', l.flash === S.day ? 'Sale is on!' : '⚡ Flash sale', '+80% visitors today', l.flash === S.day ? null : CAMPAIGNS.flash.fans, l.flash === S.day ? 'max' : '', '❤️');
+  h += `</div>`;
+  let small = '';
+  if (has('staff')) small += btn('staff', '', `Staff ${l.staff}/3`, `Serve ${servers(l) + 1} at once`, l.staff < 3 ? staffCost(l) : null, l.staff >= 3 ? 'max' : '');
+  if (has('quality')) small += btn('qual', '', `Quality ${l.quality}/3`, 'More stars', l.quality < 3 ? qualCost(l) : null, l.quality >= 3 ? 'max' : '');
+  if (has('fans')) small += btn('camp', 'flash', l.flash === S.day ? 'Sale is on!' : '⚡ Flash sale', '+80% visitors today', l.flash === S.day ? null : CAMPAIGNS.flash.fans, l.flash === S.day ? 'max' : '', '❤️');
   if (has('signature')) {
-    if (l.sig) h += `<div class="act max gold"><span class="t">✨ ${T.sig}</span><span class="s">+25% price, combos ×2</span></div>`;
-    else if (L >= 4) h += btn('sig', '', `✨ ${T.sig}`, '+25% price, combos ×2', sigCost(l), 'gold');
-    else h += `<div class="act max"><span class="t">✨ Signature</span><span class="s">Needs a Store (size 4)</span></div>`;
+    if (l.sig) small += `<div class="act max gold"><span class="t">✨ ${T.sig}</span><span class="s">+25% price, combos ×2</span></div>`;
+    else if (L >= 4) small += btn('sig', '', `✨ ${T.sig}`, '+25% price, combos ×2', sigCost(l), 'gold');
+    else small += `<div class="act max"><span class="t">✨ Signature</span><span class="s">Needs a Store (size 4)</span></div>`;
   }
-  h += `</div><div class="price"><span>Price</span><div class="grid">`;
+  const n = (small.match(/class="act/g) || []).length;
+  if (n) h += `<div class="grid" style="grid-template-columns:repeat(${n === 4 ? 2 : n},1fr)">${small}</div>`;
+  h += `<div class="price"><span>Price</span><div class="grid">`;
   for (let k = 0; k < 3; k++) h += `<button class="act ${l.price === k ? 'sel' : ''}" data-k="price" data-a="${k}"><span class="t">${PRICE.name[k]}</span><span class="c">${money(ticket(l, k))}</span></button>`;
   h += `</div></div>`;
   return h;
@@ -1160,7 +1184,7 @@ function showReport(r, end) {
   </div>`;
   const notes = [...r.news];
   if (r.best && r.best.today.rev > 0 && own('you').filter((l) => l.type).length > 1) notes.push({ e: '🏆', t: `Best shop: ${TYPES[r.best.type].name} on lot ${S.lots.indexOf(r.best) + 1} with ${money(r.best.today.rev)}.` });
-  if (r.lost > 0) notes.push({ e: '😠', t: `${r.lost} customers walked away from a full line.${has('staff') ? ' More staff or a bigger shop helps.' : ''}` });
+  if (r.lost > 0) notes.push({ e: '😠', t: `${r.lost} ${r.lost === 1 ? 'customer' : 'customers'} walked away from a full line.${has('staff') ? ' More staff or a bigger shop helps.' : ''}` });
   if (S.cash < 0 && !end) notes.push({ e: '⚠️', t: 'Your cash is below $0! Get above $0 by tonight, or you go bankrupt.', bad: true });
   const soon = ch().unlocks.find((u) => u.day === r.day + 1 && !has(u.id));
   if (soon && !end) notes.push({ e: '🎁', t: `Tomorrow: something new to try — ${CONCEPTS[soon.id].title}!` });
@@ -1345,7 +1369,7 @@ function load() {
 function afterLoad() { cam.x = 0; layout(); refreshLinks(); focusLot(S.sel); if (cam.target != null) cam.x = cam.target; renderPanel(); hudControls(); }
 
 /* ---------------- loop ---------------- */
-let last = performance.now(), acc = 0;
+let last = performance.now(), acc = 0, lastPs = '';
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (S && !S.paused && !modalOpen() && !S.ended) {
@@ -1357,7 +1381,7 @@ function frame(now) {
     if (cam.target != null) { cam.x += (cam.target - cam.x) * Math.min(1, dt * 8); if (Math.abs(cam.target - cam.x) < 0.01) { cam.x = cam.target; cam.target = null; } }
     else if (Math.abs(cam.vx) > 0.05) { cam.x = Math.max(0, Math.min(G.maxCam || 0, cam.x + cam.vx * dt)); cam.vx *= Math.pow(0.04, dt); }
   }
-  if (S) { draw(dt); hud(); }
+  if (S) { draw(dt); hud(); const ps = S.paused + ':' + modalOpen() + ':' + S.speed; if (ps !== lastPs) { lastPs = ps; hudControls(); } }
   acc += dt; if (acc > 0.3) { acc = 0; refreshAfford(); }
   requestAnimationFrame(frame);
 }
