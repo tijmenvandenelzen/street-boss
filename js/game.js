@@ -1144,6 +1144,7 @@ document.getElementById('bPause').onclick = () => { if (!modalOpen()) { S.paused
 document.getElementById('bSpeed').onclick = () => { S.speed = S.speed === 1 ? 2 : S.speed === 2 ? 3 : 1; sfx('tick'); hudControls(); };
 document.getElementById('bMenu').onclick = () => { if (!modalOpen()) showMenu(); };
 document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
   if (modalOpen()) { if (e.key === 'Enter' || e.key === ' ') { const b = MC.querySelector('.btn.go'); if (b) { e.preventDefault(); b.click(); } } return; }
   if (e.key === ' ') { e.preventDefault(); S.paused = !S.paused; hudControls(); }
   else if (e.key === 'ArrowRight') selectLot(Math.min(S.lots.length - 1, S.sel + 1));
@@ -1473,7 +1474,7 @@ function showChapterWin() {
   const C = ch();
   sfx('win'); music(null);
   confettiScreen();
-  showModal(`<div class="emoji big">🏆</div><h3>${last ? 'You are the Street Boss!' : C.name + ' is yours!'}</h3>
+  showModal(`<div class="emoji big">🏆</div><h3>${last ? (S.boss ? esc(S.boss) + ', you are the Street Boss!' : 'You are the Street Boss!') : C.name + ' is yours!'}</h3>
     <p>You own ${youCount()} lots on day ${S.day}. ${rt().name} ${last ? 'packed up and left the city.' : 'has to leave this street.'}</p>
     <p class="bigstars">${[0, 1, 2].map((k) => `<span class="${k < stars ? 'on' : 'off'}" style="animation-delay:${0.35 + k * 0.32}s">★</span>`).join('')}</p>
     <p class="muted">Win before day ${Math.floor(C.days * 0.55) + 1} for 3 stars.</p>
@@ -1510,7 +1511,7 @@ function showChapterIntro(carry) {
     ${newTypes.length && S.ch > 0 ? `<span>🆕 New shops: ${newTypes.map((k) => TYPES[k].icon + ' ' + TYPES[k].name).join(', ')}</span>` : ''}
     <span>🏗️ Shops can grow up to <b>${LV.name[C.levelCap - 1]}</b> size.</span></div>
     ${S.ch > 0 ? `<b>New ideas here:</b><ul class="newlist">${news}</ul>` : ''}
-    <div class="btns"><button class="btn go" id="mGo">Open for business</button></div>`);
+    <div class="btns"><button class="btn go" id="mGo">${S.boss ? 'Let’s go, ' + esc(S.boss) + '!' : 'Open for business'}</button></div>`);
   bind('mGo', () => { music('music_game'); hideModal(); S.paused = false; queueMorning(); renderPanel(); save(); });
 }
 function showLose(end) {
@@ -1604,12 +1605,15 @@ function showStart() {
   bind('mHow2', () => showHow(showStart));
   bind('mTro2', () => showTrophies(showStart));
 }
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function beginNew() {
   newGame(); afterLoad(); save();
   showModal(`<div class="emoji big">🍋</div><h3>Welcome to Maple Street</h3><p>You just opened a small lemonade cart. A chain called <b class="neg">QuickStop</b> wants the whole street.</p>
   <div class="news"><span>👆 Tap your cart to see what you can do.</span><span>🏗️ Build it up: cart, kiosk, shop… and later much bigger.</span><span>🎯 Own <b>3 lots</b> before day 20 to win this street.</span></div>
+  <label class="namef"><span>Your boss name</span><input id="mName" maxlength="14" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Boss" value="${esc(S.boss || '')}"></label>
   <div class="btns"><button class="btn go" id="mGo">Open the cart</button></div>`);
-  bind('mGo', () => { music('music_game'); hideModal(); S.paused = false; renderPanel(); });
+  bind('mGo', () => { S.boss = document.getElementById('mName').value.trim().slice(0, 14); save(); music('music_game'); hideModal(); S.paused = false; renderPanel(); });
+  document.getElementById('mName').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); document.getElementById('mGo').click(); } };
 }
 
 /* ---------------- save ---------------- */

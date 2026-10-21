@@ -269,7 +269,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .act.newf::before, .tabs button.newf::before { content: 'NEW'; position: absolute; top: 0; right: 8px; background: var(--pink); color: #fff; font-family: var(--display); font-size: 10px; line-height: 1; padding: 2px 6px 3px; border-radius: 0 0 6px 6px; letter-spacing: 1px; z-index: 1; }
 @keyframes newpulse { 50% { box-shadow: 0 0 0 4px rgba(255, 92, 138, .55); } }
 @media (prefers-reduced-motion: reduce) { .newf { animation: none !important; } }
-#trophy { position: fixed; left: 50%; top: max(14px, env(safe-area-inset-top, 0px)); z-index: 30; transform: translate(-50%, -140%); display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #3a2a10, #6a4a08); border: 2px solid var(--gold); padding: 8px 16px 8px 10px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); pointer-events: none; transition: transform .45s cubic-bezier(.2, 1.4, .4, 1); white-space: nowrap; }
+#trophy { position: fixed; left: 50%; top: max(14px, env(safe-area-inset-top, 0px)); z-index: 30; transform: translate(-50%, calc(-100% - 40px)); display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #3a2a10, #6a4a08); border: 2px solid var(--gold); padding: 8px 16px 8px 10px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); pointer-events: none; transition: transform .45s cubic-bezier(.2, 1.4, .4, 1); white-space: nowrap; }
 #trophy.on { transform: translate(-50%, 0); }
 #trophy .e { font-size: 30px; }
 #trophy small { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #ffe9a8; }
@@ -286,3 +286,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .spark i { flex: 1; max-width: 22px; background: var(--mint); border-radius: 3px 3px 1px 1px; opacity: .7; }
 .spark i.last { opacity: 1; box-shadow: 0 0 0 1.5px #fff; }
 .spark i.neg { background: var(--red); }
+.namef { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.namef input { font: inherit; font-size: 17px; font-weight: 600; color: var(--cream); background: var(--deep); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; outline: none; -webkit-user-select: text; user-select: text; }
+.namef input:focus { border-color: var(--sun); }
