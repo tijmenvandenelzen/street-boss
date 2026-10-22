@@ -58,22 +58,22 @@ export const CONCEPTS = {
 export const CHAPTERS = [
   {
     id: 'maple', name: 'Maple Street', blurb: 'A quiet street with a few small shops.', lots: 5, days: 20, goal: 3, rivalGoal: 3,
-    levelCap: 3, types: ['lemon', 'coffee', 'burger'], traffic: 58, lotBase: 250, theme: 'suburb',
-    you: { lot: 0 }, rivalStart: [[4, 1]], rival: { type: 'quick', funding: [12, 1.5], lotCost: [500, 250], buyProb: 0.5, startDelay: 2, cut: 0.6, upProb: 0.35, saves: true },
+    levelCap: 3, types: ['lemon', 'coffee', 'burger'], traffic: 58, lotBase: 400, theme: 'suburb',
+    you: { lot: 0 }, rivalStart: [[4, 1]], rival: { type: 'quick', funding: [16, 2.3], lotCost: [500, 250], buyProb: 0.6, startDelay: 2, cut: 0.6, upProb: 0.35, saves: true },
     unlocks: [{ id: 'staff', day: 2 }, { id: 'lots', day: 3 }, { id: 'quality', day: 5 }],
     startCash: 250,
   },
   {
     id: 'market', name: 'Market Square', blurb: 'A busy square. MegaMart has a store here.', lots: 7, days: 30, goal: 4, rivalGoal: 4,
-    levelCap: 4, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone'], traffic: 76, lotBase: 360, theme: 'market',
-    you: { lot: 1 }, rivalStart: [[5, 2]], rival: { type: 'mega', funding: [8, 1.5], lotCost: [800, 450], buyProb: 0.4, startDelay: 3, cut: 0.6, upProb: 0.45 },
+    levelCap: 4, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone'], traffic: 76, lotBase: 1000, theme: 'market',
+    you: { lot: 1 }, rivalStart: [[5, 2]], rival: { type: 'mega', funding: [22, 4], lotCost: [800, 450], buyProb: 0.5, startDelay: 3, cut: 0.6, upProb: 0.45 },
     unlocks: [{ id: 'combos', day: 1 }, { id: 'news', day: 3 }, { id: 'fans', day: 6 }],
     startCash: 450,
   },
   {
     id: 'downtown', name: 'Downtown', blurb: 'Big city, big money. MegaMart is everywhere.', lots: 9, days: 40, goal: 5, rivalGoal: 5,
-    levelCap: 5, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone', 'sneaker'], traffic: 80, lotBase: 500, theme: 'city',
-    you: { lot: 1 }, rivalStart: [[4, 2], [7, 3]], rival: { type: 'mega', funding: [10, 2], lotCost: [1300, 600], buyProb: 0.45, startDelay: 3, cut: 0.6, upProb: 0.5 },
+    levelCap: 5, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone', 'sneaker'], traffic: 80, lotBase: 1100, theme: 'city',
+    you: { lot: 1 }, rivalStart: [[4, 2], [7, 3]], rival: { type: 'mega', funding: [32, 5.8], lotCost: [1300, 600], buyProb: 0.55, startDelay: 3, cut: 0.6, upProb: 0.5 },
     unlocks: [{ id: 'buyout', day: 1 }, { id: 'city', day: 3 }, { id: 'signature', day: 6 }],
     startCash: 800,
   },
