@@ -186,7 +186,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .logo span:last-child { color: var(--pink); text-shadow: 0 5px 0 #8f1d3b; margin-left: .5em; }
 .lead { font-size: 16px; }
 .map { display: flex; align-items: center; gap: 0; background: var(--deep); border-radius: 16px; padding: 12px 10px; }
-.node { flex: none; width: 31%; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+.node { flex: none; width: calc(94% / var(--n, 3)); display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
 .node .n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 19px; background: var(--panel2); color: var(--muted); }
 .node.now .n { background: var(--sun); color: var(--ink); box-shadow: 0 0 0 4px rgba(255, 194, 61, .25); }
 .node.done .n { background: var(--mint); color: #0d3b27; }

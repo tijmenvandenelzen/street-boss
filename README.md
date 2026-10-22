@@ -13,15 +13,17 @@ The game saves itself in the browser and works offline after the first visit.
 
 ## How the game grows
 
-There are three streets. Each one adds new ideas, one at a time, so you learn them step by step.
+There are five streets. Each one adds new ideas, one at a time, so you learn them step by step.
 
 | Street | Goal | New ideas |
 | --- | --- | --- |
 | Maple Street | Own 3 of 5 lots before day 20 | Build up, prices, staff, buying lots, quality and stars |
 | Market Square | Own 4 of 7 lots before day 30 | Combos between neighbor shops, morning news, fans and campaigns |
 | Downtown | Own 5 of 9 lots before day 40 | Buy out the rival, city projects, signature products |
+| Harbor Bay | Own 6 of 10 lots before day 44 | Delivery scooters, managers |
+| Skyline Plaza | Own 6 of 11 lots before day 48 | Investors, franchises |
 
-The ideas work together. Better quality gives more stars. Stars turn customers into fans. Fans make every shop more popular and pay for campaigns. Shops that are combo partners send customers to each other, and a signature product makes those combos twice as strong. Between streets you pick a boss perk that stays with you.
+The ideas work together. Better quality gives more stars. Stars turn customers into fans. Fans make every shop more popular and pay for campaigns. Delivery brings extra orders, and shops with more stars get more of them. Investors give cash now for a part of each profit later. A franchise copies a big Store to other cities and pays a part of its sales. Shops that are combo partners send customers to each other, and a signature product makes those combos twice as strong. Between streets you pick a boss perk that stays with you.
 
 ## Small things to look for
 

@@ -36,7 +36,7 @@ const has = (c) => !!S.unlocked[c];
 const perk = (p) => S.perks.includes(p);
 function newLot() {
   return { owner: null, type: null, level: 0, staff: 0, quality: 0, price: 1, rating: 3, sig: false, flash: 0,
-    queue: [], inside: [], today: { rev: 0, served: 0, lost: 0 }, pop: 0, buildT: 0, from: 0, fresh: false };
+    queue: [], inside: [], today: { rev: 0, served: 0, lost: 0 }, pop: 0, buildT: 0, from: 0, fresh: false, deliv: false, mgr: false, fran: false };
 }
 function newGame() {
   S = { v: 2, ch: 0, day: 1, t: 0, cash: 0, fans: 0, lots: [], rival: { cash: 0, war: 0 }, city: {}, effects: [], loans: [],
@@ -47,7 +47,7 @@ function newGame() {
 }
 function setupChapter(i, carry) {
   const C = CHAPTERS[i];
-  S.ch = i; S.day = 1; S.t = 0; S.ended = false; S.debtDays = 0; S.effects = []; S.loans = []; S.city = {};
+  S.ch = i; S.day = 1; S.t = 0; S.ended = false; S.debtDays = 0; S.effects = []; S.loans = []; S.city = {}; S.shares = 0; S.lastDeliv = 0;
   S.rival = { cash: 250 + i * 300, war: 0 };
   S.people = []; S.fx = []; S.cars = []; S.spawnAcc = 0; S.dayServed = 0; S.bubbles = []; S.tryNew = {}; S.profits = [];
   S.lots = [];
@@ -59,8 +59,8 @@ function setupChapter(i, carry) {
   S.sel = C.you.lot; S.tab = 'shop';
   S.camX = 0;
   for (const u of C.unlocks) if (u.day <= 1) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
-  if (i > 0) Object.assign(S.unlocked, { staff: true, lots: true, quality: true });
-  if (i > 1) Object.assign(S.unlocked, { combos: true, news: true, fans: true });
+  // Ideas from the earlier streets stay unlocked.
+  for (let k = 0; k < i; k++) for (const u of CHAPTERS[k].unlocks) S.unlocked[u.id] = true;
   if (!booting && !BOT) try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
 }
 const own = (o) => S.lots.filter((l) => l.owner === o);
@@ -80,9 +80,21 @@ const upCost = (l) => r10(TYPES[l.type].upBase * LV.up[l.level - 1] * (perk('bui
 const staffCost = (l) => 40 * (l.staff + 1) * l.level;
 const qualCost = (l) => 70 * (l.quality + 1) * l.level;
 const sigCost = (l) => r10(800 + TYPES[l.type].build);
+const delivCost = (l) => r10(250 + 150 * l.level);
+const mgrCost = (l) => 400 * l.level;
+const MGR_WAGE = 60;
+const franCost = (l) => r10(1500 + TYPES[l.type].build);
+// Investors pay about 8 days of your recent profit for each 10% of the company.
+function shareOffer() {
+  const p = (S.profits || []).slice(-3);
+  const avg = p.length ? p.reduce((a, b) => a + b, 0) / p.length : 0;
+  return r10(Math.max(1500, avg * 8));
+}
+// Orders from home each night. More stars give many more orders.
+const delivOrders = (l) => (l.deliv ? Math.round(l.today.served * 0.12 * Math.max(0, l.rating - 1)) : 0);
 const wage = (l) => 15 + 5 * l.level;
 const rent = (l) => Math.round(LV.rent[l.level - 1] * (1 + (l.owner === 'you' ? TYPES[l.type].build : 300) / 1500));
-const buyoutCost = (l) => 800 + 600 * l.level + 200 * rivCount();
+const buyoutCost = (l) => r10((800 + 600 * l.level + 200 * rivCount()) * (1 + 0.5 * Math.max(0, S.ch - 2)));
 const rivalLotCost = () => { const c = ch().rival.lotCost; return c[0] + c[1] * Math.max(0, rivCount() - 1); };
 const priceOf = (l) => (l.owner === 'rival' && S.rival.war > 0 ? 0 : l.price);
 function ticket(l, price) {
@@ -91,11 +103,11 @@ function ticket(l, price) {
   return Math.max(1, Math.round(p));
 }
 const servers = (l) => 1 + l.staff;
-const serveTime = (l) => TT(l).serve * (1 - 0.12 * (l.level - 1)) / (l.owner === 'you' && perk('quick') ? 1.25 : 1);
+const serveTime = (l) => TT(l).serve * (1 - 0.12 * (l.level - 1)) / (l.owner === 'you' && perk('quick') ? 1.25 : 1) / (l.mgr ? 1.3 : 1);
 function shopValue(l) { return l.type && l.owner === 'you' ? Math.round((TYPES[l.type].build + 150 * l.level * l.level) * 0.8) : lotPrice() * 0.6; }
 function netWorth() { return S.cash + own('you').reduce((a, l) => a + shopValue(l), 0) - S.loans.reduce((a, x) => a + x.amt, 0); }
 const fanBoost = () => (has('fans') ? 1 + Math.min(0.5, S.fans / 1000) : 1);
-const dayCosts = (l) => rent(l) + wage(l) * l.staff;
+const dayCosts = (l) => rent(l) + wage(l) * l.staff + (l.mgr ? MGR_WAGE : 0);
 
 // Combos between neighbors. Returns list of {a,b,kind:'combo'|'clash',name}.
 function links() {
@@ -259,7 +271,11 @@ function step(dt) {
   // Now and then a happy customer leaves a tip. Tap it to collect.
   if (!BOT && S.t < 0.9 && Math.random() < dt / 7) {
     const mine = S.lots.map((l, i) => i).filter((i) => isShop(S.lots[i]) && !(S.bubbles || []).some((b) => b.i === i));
-    if (mine.length) { const i = pick(mine), l = S.lots[i]; (S.bubbles = S.bubbles || []).push({ i, v: Math.max(5, r5(ticket(l) * (1 + 0.4 * l.level))), life: 7, t: 0 }); }
+    if (mine.length) {
+      const i = pick(mine), l = S.lots[i], v = Math.max(5, r5(ticket(l) * (1 + 0.4 * l.level)));
+      if (l.mgr) { S.cash += v; S.tips = (S.tips || 0) + 1; addFx(door(i), '+$' + v, '#3ddc97'); sfx('coin', { volume: 0.4 }); }
+      else (S.bubbles = S.bubbles || []).push({ i, v, life: 7, t: 0 });
+    }
   }
   for (const b of S.bubbles || []) { b.life -= dt; b.t += dt; }
   if (S.bubbles) S.bubbles = S.bubbles.filter((b) => b.life > 0);
@@ -295,6 +311,18 @@ function taskDone(id) {
     case 'combo4': return comboCount() >= 4;
     case 'fans300': return S.fans >= 300;
     case 'profit2k': return S.lastProfit >= 2000;
+    case 'deliv1': return shops.some((l) => l.deliv);
+    case 'deliv300': return (S.lastDeliv || 0) >= 300;
+    case 'manager': return shops.some((l) => l.mgr);
+    case 'towers2': return shops.filter((l) => l.level >= 5).length >= 2;
+    case 'combo5': return comboCount() >= 5;
+    case 'profit3k': return S.lastProfit >= 3000;
+    case 'invest': return (S.shares || 0) > 0;
+    case 'fran1': return shops.some((l) => l.fran);
+    case 'towers3': return shops.filter((l) => l.level >= 5).length >= 3;
+    case 'fran3': return shops.filter((l) => l.fran).length >= 3;
+    case 'fans500': return S.fans >= 500;
+    case 'profit5k': return S.lastProfit >= 5000;
   }
   return false;
 }
@@ -338,6 +366,9 @@ function trophyMet(id) {
     case 'buyout': return !!S.didBuyout;
     case 'tower': return shops.some((l) => l.level >= 5);
     case 'metro': return !!S.city.metro;
+    case 'deliv': return (S.lastDeliv || 0) >= 500;
+    case 'manager': return shops.filter((l) => l.mgr).length >= 3;
+    case 'fran': return shops.filter((l) => l.fran).length >= 3;
     case 'boss': return S.stars.filter(Boolean).length >= CHAPTERS.length;
   }
   return false;
@@ -377,17 +408,23 @@ function showTrophies(back) {
 function endDay() {
   S.t = 1;
   const mine = own('you').filter((l) => l.type);
-  let rev = 0, rentSum = 0, wages = 0, served = 0, lost = 0;
+  let rev = 0, rentSum = 0, wages = 0, served = 0, lost = 0, deliv = 0, orders = 0, fran = 0;
   let best = null;
   for (const l of mine) {
-    rev += l.today.rev; served += l.today.served; lost += l.today.lost; rentSum += rent(l); wages += wage(l) * l.staff;
+    rev += l.today.rev; served += l.today.served; lost += l.today.lost; rentSum += rent(l); wages += wage(l) * l.staff + (l.mgr ? MGR_WAGE : 0);
+    const o = delivOrders(l); orders += o; deliv += o * ticket(l);
+    if (l.fran) fran += Math.round(l.today.rev * 0.3);
     if (!best || l.today.rev > best.today.rev) best = l;
   }
   let loanPay = 0;
   for (const x of S.loans) if (x.due === S.day) loanPay += x.amt;
   S.loans = S.loans.filter((x) => x.due !== S.day);
   const costs = rentSum + wages + loanPay;
-  S.cash -= costs;
+  const gross = rev + deliv + fran - costs;
+  const share = (S.shares || 0) / 10, inv = gross > 0 ? Math.round(gross * share) : 0;
+  S.cash += deliv + fran - costs - inv;
+  S.history.totalRev += deliv + fran;
+  S.lastDeliv = deliv;
   S.lots.forEach((l) => {
     if (!l.type) return;
     const yours = l.owner === 'you';
@@ -405,14 +442,14 @@ function endDay() {
       news.push({ e: '🕊️', t: `The price war is over.${back ? ' Your prices are back to normal.' : ''}` });
     }
   }
-  const profit = rev - costs;
+  const profit = gross - inv;
   const prev = S.day > 1 ? S.lastProfit : null;
   const record = S.day > 2 && profit > 0 && profit > S.history.bestProfit * 1.1;
   S.lastProfit = profit;
   S.profits = [...(S.profits || []), Math.round(profit)].slice(-40);
   S.history.bestProfit = Math.max(S.history.bestProfit, profit);
   checkTasks(true);
-  const report = { day: S.day, rev, rentSum, wages, loanPay, profit, served, lost, news, best, prev, record };
+  const report = { day: S.day, rev, rentSum, wages, loanPay, profit, served, lost, news, best, prev, record, deliv, orders, fran, inv, share };
   if (S.cash < 0) S.debtDays++; else S.debtDays = 0;
   let end = null;
   if (!S.free) {
@@ -438,7 +475,7 @@ function rivalTurn() {
     const nearYou = empty.filter((i) => [i - 1, i + 1].some((j) => S.lots[j] && isShop(S.lots[j])));
     const i = nearYou.length && Math.random() < 0.6 ? pick(nearYou) : pick(empty);
     R.cash -= rivalLotCost();
-    Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: 1 + (S.day > 15 ? 1 : 0) + (S.ch === 2 ? 1 : 0), rating: 3, fresh: true });
+    Object.assign(S.lots[i], newLot(), { owner: 'rival', type: 'rival', level: 1 + (S.day > 15 ? 1 : 0) + (S.ch >= 2 ? 1 : 0), rating: 3, fresh: true });
     news.push({ e: '🔴', t: `${name} opened a store on lot ${i + 1}.`, bad: true });
     if (!BOT) sfx('rival_alert');
   } else if (mine.length) {
@@ -546,7 +583,7 @@ function spend(c) {
 }
 function act(kind, arg) {
   const i = S.sel, l = S.lots[i];
-  const ideaOf = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout' }[kind];
+  const ideaOf = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout', deliv: 'delivery', mgr: 'manager', fran: 'franchise', invest: 'investors' }[kind];
   if (ideaOf && S.tryNew) delete S.tryNew[ideaOf];
   const combosBefore = new Set(linkCache.filter((k) => k.kind === 'combo').map((k) => k.a + k.name));
   switch (kind) {
@@ -565,6 +602,12 @@ function act(kind, arg) {
     case 'staff': if (has('staff') && l.staff < 3 && spend(staffCost(l))) { l.staff++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); } break;
     case 'qual': if (has('quality') && l.quality < 3 && spend(qualCost(l))) { l.quality++; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); toast('Better quality: stars go up tonight'); } break;
     case 'sig': if (has('signature') && !l.sig && l.level >= 4 && spend(sigCost(l))) { l.sig = true; l.pop = 1; sfx('milestone'); toast(`✨ ${TYPES[l.type].sig} is born!`); confetti(i, 60, true); } break;
+    case 'deliv': if (has('delivery') && isShop(l) && !l.deliv && spend(delivCost(l))) { l.deliv = true; l.pop = 0.5; sfx('upgrade_buy'); toast('🛵 Deliveries start tonight'); } break;
+    case 'mgr': if (has('manager') && isShop(l) && !l.mgr && l.staff >= 3 && spend(mgrCost(l))) { l.mgr = true; l.pop = 0.5; sfx('cash_in', { volume: 0.5 }); toast('🧑‍💼 The manager is here: the team is 30% faster'); } break;
+    case 'fran': if (has('franchise') && isShop(l) && !l.fran && l.level >= 4 && spend(franCost(l))) { l.fran = true; l.pop = 1; sfx('milestone'); toast(`🌍 Your ${TYPES[l.type].name} opens in other cities!`); confetti(i, 50, true); } break;
+    case 'invest':
+      if (has('investors') && (S.shares || 0) < 3) { const v = shareOffer(); S.shares = (S.shares || 0) + 1; S.cash += v; flashCash(v); sfx('cash_in'); toast(`📈 You sold 10% of your company for ${money(v)}`); }
+      break;
     case 'price': l.price = +arg; sfx('tick'); break;
     case 'buyout':
       if (has('buyout') && spend(buyoutCost(l))) {
@@ -651,7 +694,8 @@ function makeBackdrop() {
       } else if (theme === 'market') {
         kind = 'block'; w = 36 + rnd() * 60; h = (0.18 + rnd() * 0.32) * G.groundY * (layer === 0.3 ? 1.25 : 0.85);
       } else {
-        kind = rnd() < 0.15 ? 'spire' : 'block'; w = 30 + rnd() * 70; h = (0.3 + rnd() * 0.55) * G.groundY * (layer === 0.3 ? 1.15 : 0.8);
+        const sky = theme === 'skyline';
+        kind = rnd() < (sky ? 0.3 : theme === 'harbor' ? 0.08 : 0.15) ? 'spire' : 'block'; w = 30 + rnd() * 70; h = (0.3 + rnd() * 0.55) * G.groundY * (layer === 0.3 ? 1.15 : 0.8) * (sky ? 1.25 : theme === 'harbor' ? 0.7 : 1);
       }
       backdrop.push({ layer, x, w, h, kind, win: rnd(), hue: rnd() });
       x += w + (theme === 'suburb' ? (4 + rnd() * 20) * Math.max(1, G.fh / 60) : 2);
@@ -796,7 +840,8 @@ function drawBackdrop(t, night) {
         ctx.fillStyle = night > 0.2 ? '#ffd77a' : 'rgba(60,80,120,.5)'; ctx.fillRect(x + b.w * 0.2, gy - b.h * 0.7, b.w * 0.18, b.h * 0.25); ctx.fillRect(x + b.w * 0.62, gy - b.h * 0.7, b.w * 0.18, b.h * 0.25);
       }
     } else {
-      ctx.fillStyle = lerpC(far ? '#a9bfe8' : '#8aa3d6', far ? '#2a2252' : '#211b45', Math.min(1, t * 1.1));
+      const harbor = theme === 'harbor';
+      ctx.fillStyle = lerpC(harbor ? (far ? '#a6dbe0' : '#7fbccb') : far ? '#a9bfe8' : '#8aa3d6', far ? '#2a2252' : '#211b45', Math.min(1, t * 1.1));
       ctx.globalAlpha = far ? 0.55 : 0.75;
       ctx.fillRect(x, gy - b.h, b.w, b.h);
       if (b.kind === 'spire') { ctx.beginPath(); ctx.moveTo(x + b.w * 0.2, gy - b.h); ctx.lineTo(x + b.w / 2, gy - b.h - b.w); ctx.lineTo(x + b.w * 0.8, gy - b.h); ctx.fill(); }
@@ -1165,7 +1210,7 @@ function starStr(r) {
   return '★'.repeat(Math.floor(n)) + (n % 1 ? '<span class="half">★</span>' : '') + '<span class="off">' + '★'.repeat(5 - Math.ceil(n)) + '</span>';
 }
 function btn(kind, arg, t, s, c, extra = '', unit = '$') {
-  const idea = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout' }[kind];
+  const idea = { staff: 'staff', qual: 'quality', camp: 'fans', sig: 'signature', city: 'city', buyout: 'buyout', deliv: 'delivery', mgr: 'manager', fran: 'franchise', invest: 'investors' }[kind];
   if (idea && S.tryNew && S.tryNew[idea] && !extra.includes('max')) extra += ' newf';
   const cost = c == null ? '' : c;
   const cl = c == null ? '' : unit === '❤️' ? `<span class="c fan">${c} ❤️</span>` : `<span class="c">${money(c)}</span>`;
@@ -1249,6 +1294,13 @@ function shopPanel(l) {
   }
   const n = (small.match(/class="act/g) || []).length;
   if (n) h += `<div class="grid small n${n}">${small}</div>`;
+  const done = (t, s, cls = '') => `<div class="act max ${cls}"><span class="t">${t}</span><span class="s">${s}</span></div>`;
+  let more = '';
+  if (has('delivery')) more += l.deliv ? done('🛵 Delivery', `${delivOrders(l) || 'Some'} orders tonight`) : btn('deliv', '', '🛵 Delivery', 'Orders every night', delivCost(l));
+  if (has('manager')) more += l.mgr ? done('🧑‍💼 Manager', 'Team 30% faster') : l.staff >= 3 ? btn('mgr', '', '🧑‍💼 Manager', `30% faster, ${money(MGR_WAGE)}/night`, mgrCost(l)) : done('🧑‍💼 Manager', 'Needs 3 staff');
+  if (has('franchise')) more += l.fran ? done('🌍 Franchise', '30% of its sales', 'gold') : L >= 4 ? btn('fran', '', '🌍 Franchise', '30% of its sales every night', franCost(l), 'gold') : done('🌍 Franchise', 'Needs a Store (size 4)');
+  const m = (more.match(/class="act/g) || []).length;
+  if (m) h += `<div class="grid small n${m}">${more}</div>`;
   h += `<div class="price"><span>Price</span><div class="grid">`;
   for (let k = 0; k < 3; k++) h += `<button class="act ${l.price === k ? 'sel' : ''}" data-k="price" data-a="${k}"><span class="t">${PRICE.name[k]}</span><span class="c">${money(ticket(l, k))}</span></button>`;
   h += `</div></div>`;
@@ -1305,6 +1357,12 @@ function planPanel() {
     h += btn('camp', 'meetup', `${CAMPAIGNS.meetup.icon} ${CAMPAIGNS.meetup.name}`, CAMPAIGNS.meetup.s, CAMPAIGNS.meetup.fans, '', '❤️');
     h += btn('camp', 'viralvid', `${CAMPAIGNS.viralvid.icon} ${CAMPAIGNS.viralvid.name}`, effect('viralvid') ? 'Running now!' : CAMPAIGNS.viralvid.s, effect('viralvid') ? null : CAMPAIGNS.viralvid.fans, effect('viralvid') ? 'max' : '', '❤️');
     h += `</div><span class="muted">Flash sales are on each shop's page.</span></div>`;
+  }
+  if (has('investors')) {
+    const sh = S.shares || 0;
+    h += `<div class="sec"><b>Investors <span class="muted">${sh ? `they own ${sh * 10}% and get ${sh * 10}% of each profit` : 'you own 100% of your company'}</span></b><div class="grid one">`;
+    h += sh < 3 ? btn('invest', '', `📈 Sell 10% for ${money(shareOffer())}`, 'Cash now, but 10% less profit every night') : `<div class="act max"><span class="t">Investors own 30%</span><span class="s">You keep the rest</span></div>`;
+    h += `</div></div>`;
   }
   if (has('city')) {
     h += `<div class="sec city"><b>City projects</b>`;
@@ -1410,9 +1468,12 @@ function showReport(r, end) {
   const row = (a, b, cls = '') => `<span>${a}</span><span class="${cls}">${b}</span>`;
   let h = `<div class="kicker">${ch().name}</div><h3>Day ${r.day} is over</h3><div class="tbl">
     ${row(`Sales (${r.served} customers)`, '+' + money(r.rev), 'pos')}
+    ${r.deliv ? row(`Deliveries (${r.orders} orders)`, '+' + money(r.deliv), 'pos') : ''}
+    ${r.fran ? row('Franchises', '+' + money(r.fran), 'pos') : ''}
     ${row('Rent', '−' + money(r.rentSum), 'neg')}
     ${r.wages ? row('Staff pay', '−' + money(r.wages), 'neg') : ''}
     ${r.loanPay ? row('Loan payback', '−' + money(r.loanPay), 'neg') : ''}
+    ${r.inv ? row(`Investors (${Math.round(r.share * 100)}%)`, '−' + money(r.inv), 'neg') : ''}
     <span class="sum">Profit</span><span class="sum ${r.profit >= 0 ? 'pos' : 'neg'}" id="rProfit">${r.profit >= 0 ? '+' : '−'}${money(Math.abs(r.profit))}</span>
   </div>`;
   if (r.record) h += `<div class="record">🎉 Best day ever!</div>`;
@@ -1568,7 +1629,7 @@ function showHow(back) {
     <li>Set the <b>price</b>. Cheap brings more people, Premium brings more money per sale.</li>
     <li>Every night you pay <b>rent and staff</b>. Keep your cash above $0!</li>
     <li>Buy <b>FOR SALE</b> lots before your rival does. The first to own enough lots wins the street.</li>
-    <li>Each street adds new ideas: staff, stars, combos, fans, city projects and more.</li>
+    <li>Each street adds new ideas: staff, stars, combos, fans, city projects, delivery, investors and more.</li>
     <li>On a Mac: <b>space</b> pauses, <b>1 2 3</b> set the speed, <b>← →</b> pick a lot.</li></ul>
     <div class="btns"><button class="btn go" id="mHB">OK</button></div>`);
   bind('mHB', back);
@@ -1585,7 +1646,7 @@ function showStart() {
   }).join('<div class="road"></div>');
   showModal(`<div class="logo"><span>STREET</span><span>BOSS</span></div>
    <p class="lead">Start with a lemonade cart. End with a whole street of shops.</p>
-   <div class="map">${nodes}</div>
+   <div class="map" style="--n:${CHAPTERS.length}">${nodes}</div>
    <div class="btns">${saved ? `<button class="btn go" id="mCont">Continue<small>${CHAPTERS[saved.ch].name} · day ${saved.day}</small></button><button class="btn" id="mNew">New game</button>` : `<button class="btn go" id="mNew">Open the shop</button>`}</div>
    <div class="links"><button class="link" id="mHow2">How to play</button><button class="link" id="mTro2">🏅 Trophies ${trophies.length}/${TROPHIES.length}</button></div>`, 'start');
   bind('mCont', () => {
@@ -1671,6 +1732,6 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && /github\.i
 
 window.__SB = {
   get S() { return S; }, set S(v) { S = v; }, step, act, startDay, endDay, newGame, setupChapter, goNextChapter, refreshLinks, layout,
-  links, lotPrice, upCost, staffCost, qualCost, sigCost, buyoutCost, appeal, comboName, isShop, youCount, rivCount, TYPES, CHAPTERS, CITY, CONCEPTS,
+  links, lotPrice, upCost, staffCost, qualCost, sigCost, buyoutCost, delivCost, mgrCost, franCost, shareOffer, appeal, comboName, isShop, youCount, rivCount, TYPES, CHAPTERS, CITY, CONCEPTS,
   get G() { return G; }, get cam() { return cam; }, get botLog() { const b = botLog; botLog = null; return b; }, queueMorning, selectLot, showStart, showPerks,
 };
