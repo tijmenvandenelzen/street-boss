@@ -77,8 +77,8 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const TT = (l) => (l.owner === 'rival' ? rt() : TYPES[l.type]);
 const lotPrice = () => r10(ch().lotBase * Math.pow(1.4, youCount() - 1) * (perk('bargain') ? 0.85 : 1));
 const upCost = (l) => r10(TYPES[l.type].upBase * LV.up[l.level - 1] * (perk('builder') ? 0.85 : 1));
-const staffCost = (l) => 40 * (l.staff + 1) * l.level;
-const qualCost = (l) => 70 * (l.quality + 1) * l.level;
+const staffCost = (l) => 60 * (l.staff + 1) * l.level;
+const qualCost = (l) => 100 * (l.quality + 1) * l.level;
 const sigCost = (l) => r10(800 + TYPES[l.type].build);
 const delivCost = (l) => r10(250 + 150 * l.level);
 const mgrCost = (l) => 400 * l.level;
@@ -103,7 +103,7 @@ function ticket(l, price) {
   return Math.max(1, Math.round(p));
 }
 const servers = (l) => 1 + l.staff;
-const serveTime = (l) => TT(l).serve * (1 - 0.12 * (l.level - 1)) / (l.owner === 'you' && perk('quick') ? 1.25 : 1) / (l.mgr ? 1.3 : 1);
+const serveTime = (l) => TT(l).serve * (1 - 0.08 * (l.level - 1)) / (l.owner === 'you' && perk('quick') ? 1.25 : 1) / (l.mgr ? 1.3 : 1);
 function shopValue(l) { return l.type && l.owner === 'you' ? Math.round((TYPES[l.type].build + 150 * l.level * l.level) * 0.8) : lotPrice() * 0.6; }
 function netWorth() { return S.cash + own('you').reduce((a, l) => a + shopValue(l), 0) - S.loans.reduce((a, x) => a + x.amt, 0); }
 const fanBoost = () => (has('fans') ? 1 + Math.min(0.5, S.fans / 1000) : 1);
@@ -269,7 +269,7 @@ function step(dt) {
   for (const c of S.cars) { if (!c.dir) c.dir = c.x < 0 ? 1 : -1; c.x += c.dir * dt * 2.2; }
   S.cars = S.cars.filter((c) => c.x > -1.5 && c.x < N + 1.5);
   // Now and then a happy customer leaves a tip. Tap it to collect.
-  if (!BOT && S.t < 0.9 && Math.random() < dt / 7) {
+  if (!BOT && S.t < 0.9 && Math.random() < dt / 11) {
     const mine = S.lots.map((l, i) => i).filter((i) => isShop(S.lots[i]) && !(S.bubbles || []).some((b) => b.i === i));
     if (mine.length) {
       const i = pick(mine), l = S.lots[i], v = Math.max(5, r5(ticket(l) * (1 + 0.4 * l.level)));
