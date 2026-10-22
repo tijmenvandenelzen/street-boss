@@ -36,8 +36,8 @@ export const LV = {
   price: [1, 1.35, 1.75, 2.3, 3],
   appeal: [1, 1.3, 1.65, 2.1, 2.7],
   cap: [3, 4, 6, 8, 10],
-  rent: [6, 16, 36, 70, 120],
-  up: [1, 2.4, 5, 10],
+  rent: [6, 12, 26, 50, 90],
+  up: [1, 1.8, 3.2, 5.5],
 };
 export const PRICE = { name: ['Cheap', 'Fair', 'Premium'], mult: [0.7, 1, 1.45], appeal: [1.4, 1, 0.68], star: [0.5, 0, -0.6] };
 
@@ -58,10 +58,10 @@ export const CONCEPTS = {
 export const CHAPTERS = [
   {
     id: 'maple', name: 'Maple Street', blurb: 'A quiet street with a few small shops.', lots: 5, days: 20, goal: 3, rivalGoal: 3,
-    levelCap: 3, types: ['lemon', 'coffee', 'burger'], traffic: 50, lotBase: 300, theme: 'suburb',
+    levelCap: 3, types: ['lemon', 'coffee', 'burger'], traffic: 58, lotBase: 250, theme: 'suburb',
     you: { lot: 0 }, rivalStart: [[4, 1]], rival: { type: 'quick', funding: [12, 1.5], lotCost: [500, 250], buyProb: 0.5, startDelay: 2, cut: 0.6, upProb: 0.35, saves: true },
-    unlocks: [{ id: 'staff', day: 2 }, { id: 'lots', day: 4 }, { id: 'quality', day: 7 }],
-    startCash: 200,
+    unlocks: [{ id: 'staff', day: 2 }, { id: 'lots', day: 3 }, { id: 'quality', day: 5 }],
+    startCash: 250,
   },
   {
     id: 'market', name: 'Market Square', blurb: 'A busy square. MegaMart has a store here.', lots: 7, days: 30, goal: 4, rivalGoal: 4,
