@@ -1,11 +1,15 @@
 // Street Boss: grow a lemonade cart into a street of shops.
-import { TYPES, RIVAL_TYPES, COMBOS, comboName, partners, LV, PRICE, CONCEPTS, CHAPTERS, CITY, CAMPAIGNS, PERKS, TASKS, TROPHIES } from './data.js';
+import { TYPES, RIVAL_TYPES, COMBOS, comboName, partners, LV, PRICE, CONCEPTS, CHAPTERS, CITY, CAMPAIGNS, PERKS, TASKS, TROPHIES as STREET_TROPHIES, EMPIRE_TROPHIES } from './data.js';
+import { makeEmpire, newEmpire, weekTick, buy as empireBuy } from './empire.js';
 import { Sound } from '../sound/sound.js';
 
 const DAY_LEN = 34;
 const SAVE_KEY = 'streetboss.save.v2';
 const START_KEY = 'streetboss.chapterstart.v2';
 const BOT = !!window.__SB_BOT;
+const TROPHIES = [...STREET_TROPHIES, ...EMPIRE_TROPHIES];
+// Streets 1 to 3 are the first part of the game. After them you graduate to the city map.
+const ACT1 = 3;
 
 /* ---------------- sound ---------------- */
 const sound = new Sound({ base: './sound/', storageKey: 'streetboss.sound' });
@@ -58,7 +62,7 @@ function setupChapter(i, carry) {
   S.cash = C.startCash + (carry ? carry.bonus : 0) + (perk('wallet') && i > 0 ? 600 : 0);
   S.sel = C.you.lot; S.tab = 'shop';
   S.camX = 0;
-  for (const u of C.unlocks) if (u.day <= 1) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
+  for (const u of C.unlocks) if (u.day <= 1 && !S.unlocked[u.id]) S.pendingUnlocks = [...(S.pendingUnlocks || []), u.id];
   // Ideas from the earlier streets stay unlocked.
   for (let k = 0; k < i; k++) for (const u of CHAPTERS[k].unlocks) S.unlocked[u.id] = true;
   if (!booting && !BOT) try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
@@ -373,10 +377,17 @@ function trophyMet(id) {
   }
   return false;
 }
+function awardTrophy(id) {
+  if (BOT || trophies.includes(id)) return;
+  const t = TROPHIES.find((x) => x.id === id); if (!t) return;
+  trophies.push(id);
+  try { localStorage.setItem(TROPHY_KEY, JSON.stringify(trophies)); } catch (e) { /* ignore */ }
+  showTrophy(t);
+}
 function checkTrophies() {
   if (BOT) return;
   for (const t of TROPHIES) {
-    if (trophies.includes(t.id) || !trophyMet(t.id)) continue;
+    if (trophies.includes(t.id) || EMPIRE_TROPHIES.includes(t) || !trophyMet(t.id)) continue;
     trophies.push(t.id);
     try { localStorage.setItem(TROPHY_KEY, JSON.stringify(trophies)); } catch (e) { /* ignore */ }
     showTrophy(t);
@@ -1191,6 +1202,7 @@ document.getElementById('bMenu').onclick = () => { if (!modalOpen()) showMenu();
 document.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (modalOpen()) { if (e.key === 'Enter' || e.key === ' ') { const b = MC.querySelector('.btn.go'); if (b) { e.preventDefault(); b.click(); } } return; }
+  if (EMP.isOpen()) return;
   if (e.key === ' ') { e.preventDefault(); S.paused = !S.paused; hudControls(); }
   else if (e.key === 'ArrowRight') selectLot(Math.min(S.lots.length - 1, S.sel + 1));
   else if (e.key === 'ArrowLeft') selectLot(Math.max(0, S.sel - 1));
@@ -1533,21 +1545,44 @@ function showChapterWin() {
   const stars = chapterStars();
   S.stars[S.ch] = Math.max(S.stars[S.ch] || 0, stars);
   setTimeout(checkTrophies, 1800);
-  const last = S.ch === CHAPTERS.length - 1;
+  const map = !!S.fromMap, last = !map && S.ch === ACT1 - 1;
   const C = ch();
   sfx('win'); music(null);
   confettiScreen();
   showModal(`<div class="emoji big">🏆</div><h3>${last ? (S.boss ? esc(S.boss) + ', you are the Street Boss!' : 'You are the Street Boss!') : C.name + ' is yours!'}</h3>
-    <p>You own ${youCount()} lots on day ${S.day}. ${rt().name} ${last ? 'packed up and left the city.' : 'has to leave this street.'}</p>
+    <p>You own ${youCount()} lots on day ${S.day}. ${rt().name} ${last ? 'packed up and left. Now the whole city waits for you: you graduate to the city map!' : 'has to leave this street.'}</p>
     <p class="bigstars">${[0, 1, 2].map((k) => `<span class="${k < stars ? 'on' : 'off'}" style="animation-delay:${0.35 + k * 0.32}s">★</span>`).join('')}</p>
     <p class="muted">Win before day ${Math.floor(C.days * 0.55) + 1} for 3 stars.</p>
     <div class="tbl"><span>Net worth</span><span>${money(netWorth())}</span><span>Total sales</span><span>${money(S.history.totalRev)}</span><span>Best day profit</span><span>${money(S.history.bestProfit)}</span>${has('fans') ? `<span>Fans</span><span>${S.fans} ❤️</span>` : ''}</div>
-    <div class="btns">${last ? `<button class="btn" id="mFree">Keep playing</button><button class="btn go" id="mMenu">Main menu</button>` : `<button class="btn go" id="mNextCh">Next street: ${CHAPTERS[S.ch + 1].name}</button>`}</div>`, 'win');
+    <div class="btns">${map ? `<button class="btn go" id="mBack">Back to the city map</button>` : last ? `<button class="btn" id="mFree">Keep playing here</button><button class="btn go" id="mCity">Go to the city map 🏙️</button>` : `<button class="btn go" id="mNextCh">Next street: ${CHAPTERS[S.ch + 1].name}</button>`}</div>`, 'win');
   for (let k = 0; k < stars; k++) setTimeout(() => sfx('coin', { volume: 0.8, rate: 1 + k * 0.15 }), 450 + k * 320);
   bind('mNextCh', showPerks);
   bind('mFree', () => { S.free = true; S.ended = false; for (const u of ch().unlocks) S.unlocked[u.id] = true; save(); hideModal(); startDay(); music('music_game'); });
-  bind('mMenu', () => { save(); showStart(); });
+  bind('mCity', graduate);
+  bind('mBack', () => backToMap(true));
   save();
+}
+// Downtown is won: start the city map.
+function graduate() {
+  const best = own('you').filter((l) => l.type).sort((a, b) => b.level - a.level || b.today.rev - a.today.rev)[0];
+  hideModal(); S.paused = true; save();
+  EMP.start(best ? best.type : 'lemon', 3000 + Math.min(3000, Math.max(0, r10(netWorth() * 0.1))));
+}
+// A street played from the city map is over.
+function backToMap(won) {
+  const reward = won ? Math.min(5000, Math.max(0, r10(netWorth() * 0.15))) : 0;
+  S.fromMap = null; S.paused = true; hideModal(); save();
+  EMP.streetDone(won, reward);
+}
+function playStreet(k, chIndex, bonus) {
+  const E = EMP.E;
+  S.free = false; S.ended = false;
+  setupChapter(chIndex, { type: E.bestType, level: chIndex === 0 ? 2 : 3, bonus });
+  S.fromMap = k;
+  cam.x = 0; layout(); refreshLinks(); focusLot(S.sel); renderPanel(); hudControls();
+  try { localStorage.setItem(START_KEY, JSON.stringify(serial())); } catch (e) { /* ignore */ }
+  save();
+  showChapterIntro({ type: E.bestType, level: chIndex === 0 ? 2 : 3, bonus });
 }
 function showPerks() {
   const avail = Object.keys(PERKS).filter((p) => !S.perks.includes(p) && !(p === 'fanclub' && S.ch >= 2));
@@ -1568,7 +1603,7 @@ function showChapterIntro(carry) {
   const C = ch();
   const news = C.unlocks.map((u) => `<li>${CONCEPTS[u.id].icon} <b>${CONCEPTS[u.id].title}</b>${u.day > 1 ? ` <span class="muted">(day ${u.day})</span>` : ''}</li>`).join('');
   const newTypes = C.types.filter((k) => !(CHAPTERS[S.ch - 1] || { types: [] }).types.includes(k));
-  showModal(`<div class="kicker">Street ${S.ch + 1} of ${CHAPTERS.length}</div><h3>${C.name}</h3><p>${C.blurb}</p>
+  showModal(`<div class="kicker">${S.fromMap ? 'City map' : `Street ${S.ch + 1} of ${ACT1}`}</div><h3>${C.name}</h3><p>${C.blurb}</p>
     ${carry ? `<p>You move your <b>${TYPES[carry.type].name} ${LV.name[carry.level - 1]}</b> here${carry.bonus ? ` and bring <b>${money(carry.bonus)}</b> from selling the old street` : ''}.</p>` : ''}
     <div class="news"><span>🎯 Own <b>${C.goal} of ${C.lots}</b> lots before day ${C.days}. ${rt().name} needs ${C.rivalGoal}.</span>
     ${newTypes.length && S.ch > 0 ? `<span>🆕 New shops: ${newTypes.map((k) => TYPES[k].icon + ' ' + TYPES[k].name).join(', ')}</span>` : ''}
@@ -1576,6 +1611,7 @@ function showChapterIntro(carry) {
     ${S.ch > 0 ? `<b>New ideas here:</b><ul class="newlist">${news}</ul>` : ''}
     <div class="btns"><button class="btn go" id="mGo">${S.boss ? 'Let’s go, ' + esc(S.boss) + '!' : 'Open for business'}</button></div>`);
   bind('mGo', () => { music('music_game'); hideModal(); S.paused = false; queueMorning(); renderPanel(); save(); });
+  if (S.fromMap && carry && carry.bonus) MC.querySelector('p:nth-of-type(2)').innerHTML = `You bring your best shop and <b>${money(carry.bonus)}</b> from your city.`;
 }
 function showLose(end) {
   const T = {
@@ -1585,8 +1621,9 @@ function showLose(end) {
   }[end];
   sfx('lose'); music(null);
   showModal(`<div class="emoji big">${T[0]}</div><h3>${T[1]}</h3><p>${T[2]}</p>
-   <div class="btns"><button class="btn go" id="mRetry">Try ${ch().name} again</button><button class="btn" id="mMenu">Main menu</button></div>`);
+   <div class="btns"><button class="btn go" id="mRetry">Try ${ch().name} again</button>${S.fromMap ? '<button class="btn" id="mBack">Back to the city map</button>' : '<button class="btn" id="mMenu">Main menu</button>'}</div>`);
   bind('mRetry', retryChapter);
+  bind('mBack', () => backToMap(false));
   bind('mMenu', () => showStart());
 }
 function retryChapter() {
@@ -1610,7 +1647,7 @@ function showMenu() {
     <button class="btn" id="mMusic">${musicOn ? '🎵 Music: on' : '🎵 Music: off'}</button>
     <button class="btn" id="mHow">❓ How to play</button>
     <button class="btn" id="mTro">🏅 Trophies <span class="muted">${trophies.length}/${TROPHIES.length}</span></button>
-    <button class="btn" id="mRestart">↺ Restart ${ch().name}</button>
+    ${EMP.isOpen() ? '' : `<button class="btn" id="mRestart">↺ Restart ${ch().name}</button>`}
     <button class="btn" id="mMain">🏠 Main menu</button>
    </div>
    <div class="btns"><button class="btn go" id="mBack">Back to the game</button></div>`);
@@ -1619,7 +1656,7 @@ function showMenu() {
   bind('mHow', () => showHow(() => { showMenu(); S.paused = wasPaused; }));
   bind('mTro', () => showTrophies(() => { showMenu(); S.paused = wasPaused; }));
   bind('mRestart', () => showModal(`<h3>Restart ${ch().name}?</h3><p>You go back to day 1 of this street. Your perks stay.</p><div class="btns"><button class="btn" id="mNo">Cancel</button><button class="btn go" id="mYes">Restart</button></div>`) || (bind('mNo', () => { showMenu(); S.paused = wasPaused; }), bind('mYes', retryChapter)));
-  bind('mMain', () => { save(); showStart(); });
+  bind('mMain', () => { save(); EMP.close(); showStart(); });
   bind('mBack', () => { hideModal(); S.paused = wasPaused; hudControls(); });
 }
 function showHow(back) {
@@ -1629,7 +1666,8 @@ function showHow(back) {
     <li>Set the <b>price</b>. Cheap brings more people, Premium brings more money per sale.</li>
     <li>Every night you pay <b>rent and staff</b>. Keep your cash above $0!</li>
     <li>Buy <b>FOR SALE</b> lots before your rival does. The first to own enough lots wins the street.</li>
-    <li>Each street adds new ideas: staff, stars, combos, fans, city projects, delivery, investors and more.</li>
+    <li>Each street adds new ideas: staff, stars, combos, fans, city projects and more.</li>
+    <li>After Downtown you graduate to the <b>city map</b>: run all your streets, fight GigaCorp and start your own brand in Factory Park.</li>
     <li>On a Mac: <b>space</b> pauses, <b>1 2 3</b> set the speed, <b>← →</b> pick a lot.</li></ul>
     <div class="btns"><button class="btn go" id="mHB">OK</button></div>`);
   bind('mHB', back);
@@ -1640,17 +1678,21 @@ function showStart() {
   music('music_menu');
   const stars = (saved || S || {}).stars || [];
   const at = saved ? saved.ch : 0;
-  const nodes = CHAPTERS.map((c, i) => {
-    const st = stars[i] || 0, state = i < at || st ? 'done' : i === at ? 'now' : 'lock';
+  const E = EMP.E, inCity = !!E && !(saved && saved.fromMap);
+  const nodes = CHAPTERS.slice(0, ACT1).map((c, i) => {
+    const st = stars[i] || 0, state = E || i < at || st ? 'done' : i === at ? 'now' : 'lock';
     return `<div class="node ${state}"><div class="n">${state === 'lock' ? '🔒' : i + 1}</div><b>${c.name}</b><span class="st">${'★'.repeat(st)}<span class="off">${'★'.repeat(3 - st)}</span></span></div>`;
-  }).join('<div class="road"></div>');
+  }).concat(`<div class="node ${E ? (E.done ? 'done' : 'now') : 'lock'}"><div class="n">${E ? '🏙️' : '🔒'}</div><b>City map</b><span class="st">${E && E.done ? '★'.repeat(E.stars) + `<span class="off">${'★'.repeat(3 - E.stars)}</span>` : '<span class="off">★★★</span>'}</span></div>`).join('<div class="road"></div>');
+  const cont = inCity ? `City map · week ${E.week}` : saved ? `${CHAPTERS[saved.ch].name} · day ${saved.day}` : '';
   showModal(`<div class="logo"><span>STREET</span><span>BOSS</span></div>
-   <p class="lead">Start with a lemonade cart. End with a whole street of shops.</p>
-   <div class="map" style="--n:${CHAPTERS.length}">${nodes}</div>
-   <div class="btns">${saved ? `<button class="btn go" id="mCont">Continue<small>${CHAPTERS[saved.ch].name} · day ${saved.day}</small></button><button class="btn" id="mNew">New game</button>` : `<button class="btn go" id="mNew">Open the shop</button>`}</div>
+   <p class="lead">Start with a lemonade cart. End as the boss of the whole city.</p>
+   <div class="map" style="--n:${ACT1 + 1}">${nodes}</div>
+   <div class="btns">${saved || inCity ? `<button class="btn go" id="mCont">Continue<small>${cont}</small></button><button class="btn" id="mNew">New game</button>` : `<button class="btn go" id="mNew">Open the shop</button>`}</div>
    <div class="links"><button class="link" id="mHow2">How to play</button><button class="link" id="mTro2">🏅 Trophies ${trophies.length}/${TROPHIES.length}</button></div>`, 'start');
   bind('mCont', () => {
-    S = saved; afterLoad(); hideModal(); music('music_game');
+    if (saved) { S = saved; afterLoad(); }
+    if (inCity) { hideModal(); S.paused = true; EMP.open(); return; }
+    hideModal(); music('music_game');
     if (S.ended && !S.free) {
       // The save is from the end of a street: show that result again.
       const end = youCount() >= ch().goal ? 'win' : rivCount() >= ch().rivalGoal ? 'rival' : S.day >= ch().days ? 'time' : 'broke';
@@ -1660,7 +1702,7 @@ function showStart() {
     S.ended = false; S.paused = false; renderPanel(); hudControls(); dayBanner();
   });
   bind('mNew', () => {
-    if (saved) {
+    if (saved || E) {
       showModal(`<h3>Start a new game?</h3><p>Your saved game will be gone.</p><div class="btns"><button class="btn" id="mNo">Keep my game</button><button class="btn go" id="mYes">New game</button></div>`);
       bind('mNo', showStart); bind('mYes', beginNew);
     } else beginNew();
@@ -1670,6 +1712,7 @@ function showStart() {
 }
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function beginNew() {
+  EMP.reset();
   newGame(); afterLoad(); save();
   showModal(`<div class="emoji big">🍋</div><h3>Welcome to Maple Street</h3><p>You just opened a small lemonade cart. A chain called <b class="neg">QuickStop</b> wants the whole street.</p>
   <div class="news"><span>👆 Tap your cart to see what you can do.</span><span>🏗️ Build it up: cart, kiosk, shop… and later much bigger.</span><span>🎯 Own <b>3 lots</b> before day 20 to win this street.</span></div>
@@ -1722,6 +1765,7 @@ function botReport(r, end) { botLog = { r, end }; }
 
 /* ---------------- boot ---------------- */
 new ResizeObserver(() => { resize(); }).observe(cv);
+const EMP = makeEmpire({ sfx, music, showModal, hideModal, bind, playStreet, bot: BOT, award: awardTrophy, menu: () => showMenu(), home: () => showStart(), boss: () => (S.boss ? esc(S.boss) : '') });
 newGame();
 booting = false;
 resize(); refreshLinks();
@@ -1733,5 +1777,5 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && /github\.i
 window.__SB = {
   get S() { return S; }, set S(v) { S = v; }, step, act, startDay, endDay, newGame, setupChapter, goNextChapter, refreshLinks, layout,
   links, lotPrice, upCost, staffCost, qualCost, sigCost, buyoutCost, delivCost, mgrCost, franCost, shareOffer, appeal, comboName, isShop, youCount, rivCount, TYPES, CHAPTERS, CITY, CONCEPTS,
-  get G() { return G; }, get cam() { return cam; }, get botLog() { const b = botLog; botLog = null; return b; }, queueMorning, selectLot, showStart, showPerks,
+  get G() { return G; }, EMP, newEmpire, weekTick, empireBuy, playStreet, backToMap, graduate, get cam() { return cam; }, get botLog() { const b = botLog; botLog = null; return b; }, queueMorning, selectLot, showStart, showPerks,
 };
