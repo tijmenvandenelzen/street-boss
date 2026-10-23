@@ -1647,6 +1647,7 @@ function showMenu() {
     <button class="btn" id="mMusic">${musicOn ? '🎵 Music: on' : '🎵 Music: off'}</button>
     <button class="btn" id="mHow">❓ How to play</button>
     <button class="btn" id="mTro">🏅 Trophies <span class="muted">${trophies.length}/${TROPHIES.length}</span></button>
+    ${!EMP.exists() && S.free && S.ch === ACT1 - 1 ? '<button class="btn go" id="mCityM">🏙️ Go to the city map</button>' : ''}
     ${EMP.isOpen() ? '' : `<button class="btn" id="mRestart">↺ Restart ${ch().name}</button>`}
     <button class="btn" id="mMain">🏠 Main menu</button>
    </div>
@@ -1657,6 +1658,7 @@ function showMenu() {
   bind('mTro', () => showTrophies(() => { showMenu(); S.paused = wasPaused; }));
   bind('mRestart', () => showModal(`<h3>Restart ${ch().name}?</h3><p>You go back to day 1 of this street. Your perks stay.</p><div class="btns"><button class="btn" id="mNo">Cancel</button><button class="btn go" id="mYes">Restart</button></div>`) || (bind('mNo', () => { showMenu(); S.paused = wasPaused; }), bind('mYes', retryChapter)));
   bind('mMain', () => { save(); EMP.close(); showStart(); });
+  bind('mCityM', () => { S.free = false; graduate(); });
   bind('mBack', () => { hideModal(); S.paused = wasPaused; hudControls(); });
 }
 function showHow(back) {
