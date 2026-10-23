@@ -12,6 +12,7 @@ export const TYPES = {
 export const RIVAL_TYPES = {
   quick: { name: 'QuickStop', short: 'Q',    price: 6, appeal: 1.0,  serve: 2.4, c1: '#2f9e6e', c2: '#ffb020', roof: '#1f6b4a', dark: '#174d36' },
   mega:  { name: 'MegaMart',  short: 'MEGA', price: 8, appeal: 1.15, serve: 2.5, c1: '#5a5f7d', c2: '#ff3b4f', roof: '#30334a', dark: '#30334a' },
+  giga:  { name: 'GigaCorp',  short: 'GIGA', price: 9, appeal: 1.1, serve: 2.5, c1: '#1f2a44', c2: '#7cf2ff', roof: '#0f1626', dark: '#0f1626' },
 };
 
 // Combos: a ring, so every shop type has two partners.
@@ -52,6 +53,10 @@ export const CONCEPTS = {
   buyout:    { icon: '💼', title: 'Buy out', text: 'Tap a MegaMart store to buy it out. It is expensive, but the lot becomes yours and MegaMart loses it.' },
   city:      { icon: '🏙️', title: 'City projects', text: 'Pay for a bus stop, street lights, a park or a metro. They bring more people to the whole street. MegaMart gets those people too!' },
   signature: { icon: '✨', title: 'Signature items', text: 'A Store (size 4) can invent its own famous product. It sells for more, and the combos of that shop get twice as strong.' },
+  delivery:  { icon: '🛵', title: 'Delivery', text: 'Give a shop a delivery scooter. Every night, people at home order from it too. Shops with more stars get many more orders.' },
+  manager:   { icon: '🧑‍💼', title: 'Managers', text: 'A shop with 3 staff can hire a manager. The whole team works 30% faster, and the manager collects the tips for you. A manager gets paid every night.' },
+  investors: { icon: '📈', title: 'Investors', text: 'Investors give you cash now for a part of your company. After that, they get that part of your profit every night. Cash now, less later!' },
+  franchise: { icon: '🌍', title: 'Franchise', text: 'Let other people open copies of your Store in other cities. You pay once to set it up. After that, you get a part of its sales every night.' },
 };
 
 // Streets (chapters). Each one adds new ideas.
@@ -76,6 +81,20 @@ export const CHAPTERS = [
     you: { lot: 1 }, rivalStart: [[4, 2], [7, 3]], rival: { type: 'mega', funding: [10, 2], lotCost: [1300, 600], buyProb: 0.45, startDelay: 3, cut: 0.6, upProb: 0.5 },
     unlocks: [{ id: 'buyout', day: 1 }, { id: 'city', day: 3 }, { id: 'signature', day: 6 }],
     startCash: 800,
+  },
+  {
+    id: 'harbor', name: 'Harbor Bay', blurb: 'Ships, tourists and a big MegaMart warehouse.', lots: 10, days: 44, goal: 6, rivalGoal: 6,
+    levelCap: 5, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone', 'sneaker'], traffic: 92, lotBase: 900, theme: 'harbor',
+    you: { lot: 2 }, rivalStart: [[0, 2], [5, 3], [8, 3]], rival: { type: 'mega', funding: [28, 5], lotCost: [1200, 550], buyProb: 0.6, startDelay: 2, cut: 0.6, upProb: 0.55 },
+    unlocks: [{ id: 'delivery', day: 1 }, { id: 'manager', day: 4 }],
+    startCash: 1800,
+  },
+  {
+    id: 'skyline', name: 'Skyline Plaza', blurb: 'The richest street in the country. GigaCorp, the owner of MegaMart, wants it too.', lots: 11, days: 48, goal: 6, rivalGoal: 7,
+    levelCap: 5, types: ['lemon', 'coffee', 'burger', 'arcade', 'phone', 'sneaker'], traffic: 120, lotBase: 1100, theme: 'skyline',
+    you: { lot: 5 }, rivalStart: [[1, 2], [3, 3], [8, 2]], rival: { type: 'giga', funding: [52, 9.5], lotCost: [1800, 800], buyProb: 0.6, startDelay: 2, cut: 0.6, upProb: 0.6 },
+    unlocks: [{ id: 'investors', day: 1 }, { id: 'franchise', day: 4 }],
+    startCash: 2000,
   },
 ];
 
@@ -132,6 +151,22 @@ export const TASKS = {
     { id: 'fans300',  t: 'Get 300 fans', r: 500 },
     { id: 'profit2k', t: 'Make $2,000 profit in one day', r: 1000 },
   ],
+  harbor: [
+    { id: 'deliv1',   t: 'Give a shop a delivery scooter', r: 400, need: 'delivery' },
+    { id: 'deliv300', t: 'Earn $300 from deliveries in one night', r: 600, need: 'delivery' },
+    { id: 'manager',  t: 'Hire a manager', r: 600, need: 'manager' },
+    { id: 'towers2',  t: 'Have 2 Towers', r: 1500 },
+    { id: 'combo5',   t: 'Have 5 combos at once', r: 1200 },
+    { id: 'profit3k', t: 'Make $3,000 profit in one day', r: 1500 },
+  ],
+  skyline: [
+    { id: 'invest',   t: 'Sell shares to investors', r: 500, need: 'investors' },
+    { id: 'fran1',    t: 'Start a franchise', r: 800, need: 'franchise' },
+    { id: 'towers3',  t: 'Have 3 Towers', r: 2000 },
+    { id: 'fran3',    t: 'Run 3 franchises', r: 2000, need: 'franchise' },
+    { id: 'fans500',  t: 'Get 500 fans', r: 1000 },
+    { id: 'profit5k', t: 'Make $5,000 profit in one day', r: 2500 },
+  ],
 };
 
 // Trophies stay across games, also after a new game.
@@ -149,5 +184,55 @@ export const TROPHIES = [
   { id: 'buyout',  icon: '💼', name: 'Takeover',       s: 'Buy out a MegaMart store' },
   { id: 'tower',   icon: '🏙️', name: 'Sky high',       s: 'Build a Tower' },
   { id: 'metro',   icon: '🚇', name: 'City builder',   s: 'Build the metro station' },
-  { id: 'boss',    icon: '👑', name: 'Street Boss',    s: 'Win all three streets' },
+  { id: 'deliv',   icon: '🛵', name: 'Fast food',      s: 'Earn $500 from deliveries in one night' },
+  { id: 'manager', icon: '🧑‍💼', name: 'Dream team',     s: 'Hire 3 managers' },
+  { id: 'fran',    icon: '🌍', name: 'Worldwide',      s: 'Run 3 franchises' },
+  { id: 'boss',    icon: '👑', name: 'Street Boss',    s: 'Win every street' },
+];
+
+/* ---------------- City empire (after Downtown) ---------------- */
+// Districts on the city map. ch = the street you play to win it.
+// income = money each week. need = district that you must own first.
+export const DISTRICTS = {
+  maple:    { name: 'Maple Street',  icon: '🍋', ch: 0, income: 500,  col: '#7cc47f', x: 1, y: 3 },
+  market:   { name: 'Market Square', icon: '🎪', ch: 1, income: 1000, col: '#ff8fab', x: 0, y: 2 },
+  downtown: { name: 'Downtown',      icon: '🏙️', ch: 2, income: 2000, col: '#8aa3d6', x: 1, y: 1 },
+  harbor:   { name: 'Harbor Bay',    icon: '⚓', ch: 3, income: 3200, col: '#5fc4d0', x: 2, y: 2, need: 'downtown' },
+  skyline:  { name: 'Skyline Plaza', icon: '🌆', ch: 4, income: 4800, col: '#b48cff', x: 2, y: 0, need: 'harbor' },
+  factory:  { name: 'Factory Park',  icon: '🏭', factory: true, cost: 8000, col: '#ffc23d', x: 0, y: 0 },
+};
+export const EMPIRE = {
+  startCash: 3000,
+  mgrMult: [1, 1.5, 2, 2.6],      // income per manager level
+  mgrCost: [3, 6, 12],            // × weekly income
+  secCost: [1.5, 3, 6],           // × weekly income
+  regen: 8, secRegen: 4,          // loyalty back each week, per security level
+  attack: { chance: 0.35, perWeek: 0.025, max: 0.85, dmg: 22, dmgPerPower: 6, secCut: 0.22 },
+  power: { start: 1, perWeek: 0.1 },
+  buyBack: 8,                     // × weekly income
+  streetWeeks: 4,                 // weeks that pass while you play a street
+  stars: [26, 40],                // City Boss by this week: 3 stars, 2 stars
+  shareGoal: 0.5, citiesGoal: 3,
+};
+// Your own brand. Machine levels set how many crates the factory makes each week.
+export const FACTORY = {
+  machine: [{ cap: 200, cost: 0 }, { cap: 450, cost: 5000 }, { cap: 900, cost: 12000 }, { cap: 1800, cost: 25000 }],
+  recipe: [{ appeal: 0, cost: 0 }, { appeal: 0.3, cost: 6000 }, { appeal: 0.6, cost: 15000 }],
+  crateCost: 3, wage: [400, 300],  // wage = 400 + 300 × machine level
+  truck: { cost: 3000, cap: 250, max: 8, upkeep: 150 },
+  price: { name: ['Cheap', 'Fair', 'Premium'], v: [5, 8, 12], demand: [1.5, 1, 0.6] },
+  adCost: [0.5, 1, 2],            // × the opening cost of the city
+  adAppeal: 0.3,
+  giga: { start: 0.8, perWeek: 0.05, max: 2.2 },
+};
+export const CITIES = [
+  { id: 'home',  name: 'Your streets', icon: '🏠', demand: 100, perDistrict: true, open: 0, truck: false, s: 'Your own shops sell it. No trucks needed.' },
+  { id: 'river', name: 'Riverside',    icon: '🌉', demand: 500,  open: 2000, truck: true, s: 'A small town over the bridge.' },
+  { id: 'hill',  name: 'Hilltown',     icon: '⛰️', demand: 800,  open: 4000, truck: true, s: 'Busy town in the hills.' },
+  { id: 'port',  name: 'Port City',    icon: '🚢', demand: 1200, open: 8000, truck: true, s: 'A big city. Lots of thirsty people.' },
+];
+export const EMPIRE_TROPHIES = [
+  { id: 'graduate', icon: '🎓', name: 'Graduate',   s: 'Reach the city map' },
+  { id: 'factory',  icon: '🏭', name: 'Brand owner', s: 'Build your own factory' },
+  { id: 'cityboss', icon: '🏆', name: 'City Boss',   s: 'Own every district and win 3 cities for your brand' },
 ];
